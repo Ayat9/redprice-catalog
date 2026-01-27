@@ -1,0 +1,35 @@
+{
+  "name": "redprice-catalog",
+  "version": "1.0.0",
+  "description": "Product catalog for RedPrice with Vercel Speed Insights",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ayat9/redprice-catalog.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Ayat9/redprice-catalog/issues"
+  },
+  "homepage": "https://github.com/Ayat9/redprice-catalog#readme",
+  "dependencies": {
+    "@vercel/speed-insights": "^1.3.1",
+    "next": "^16.1.5",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.10",
+    "@types/react": "^19.2.9",
+    "eslint": "^9.39.2",
+    "eslint-config-next": "^16.1.5",
+    "typescript": "^5.9.3"
+  }
+}
