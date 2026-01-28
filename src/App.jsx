@@ -15,7 +15,6 @@ import Cart from './pages/Cart'
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
-import Calculator from './pages/Calculator'
 import ProtectedRoute from './components/ProtectedRoute'
 import { CustomersProvider } from './context/CustomersContext'
 import { CategoriesProvider } from './context/CategoriesContext'
@@ -104,14 +103,6 @@ function App() {
                     <Header />
                     <main className="main-content">
                       <Cart />
-                    </main>
-                  </div>
-                } />
-                <Route path="/calculator" element={
-                  <div className="app">
-                    <Header />
-                    <main className="main-content">
-                      <Calculator />
                     </main>
                   </div>
                 } />
