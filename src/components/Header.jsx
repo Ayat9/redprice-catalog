@@ -2,7 +2,7 @@ export default function Header({ cartCount, cartTotal, onOpenCart }) {
   return (
     <header className="header">
       <div className="header-inner">
-        <a href="/" className="logo">turplast</a>
+        <a href="/" className="logo">Каталог</a>
         <nav className="nav">
           <a href="#catalog" className="nav-link">Каталог</a>
           <a href="#login" className="nav-link">Войти</a>
