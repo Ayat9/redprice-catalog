@@ -3,12 +3,7 @@ import './Home.css'
 function Home() {
   return (
     <div className="home">
-      <div className="home-header">
-        <h2>Hello World</h2>
-        <p className="home-subtitle">
-          Это простая стартовая страница с текстом Hello World.
-        </p>
-      </div>
+      <h1>Hello World</h1>
     </div>
   )
 }
