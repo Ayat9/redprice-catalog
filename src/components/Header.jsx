@@ -1,33 +1,18 @@
-import { Link } from 'react-router-dom'
-import { useCart } from '../context/CartContext'
-import './Header.css'
-
-function Header() {
-  let cartCount = 0
-  try {
-    const { getCartCount } = useCart()
-    cartCount = getCartCount()
-  } catch (e) {
-    // Cart context not available
-  }
-
+export default function Header({ cartCount, cartTotal, onOpenCart }) {
   return (
     <header className="header">
-      <div className="header-container">
-        <Link to="/" className="logo">
-          <h1>Каталог Поставщиков</h1>
-        </Link>
+      <div className="header-inner">
+        <a href="/" className="logo">turplast</a>
         <nav className="nav">
-          <Link to="/" className="nav-link">Каталог</Link>
-          <Link to="/admin" className="nav-link">Админ-панель</Link>
-          <Link to="/cart" className="nav-link cart-link">
-            Корзина
-            {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
-          </Link>
+          <a href="#catalog" className="nav-link">Каталог</a>
+          <a href="#login" className="nav-link">Войти</a>
         </nav>
+        <a href="tel:87086910243" className="phone">8 (708) 691-02-43</a>
+        <button type="button" className="cart-btn" onClick={onOpenCart}>
+          <span className="cart-btn-text">Выбрано {cartCount} тов ({cartTotal.toLocaleString('ru-KZ')}₸)</span>
+          <span className="cart-btn-action">Открыть корзину</span>
+        </button>
       </div>
     </header>
   )
 }
-
-export default Header
