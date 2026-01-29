@@ -1,7 +1,9 @@
 export const products = [
   {
     id: '1',
+    supplierId: 's1',
     categoryId: 'konteynery',
+    type: 'Контейнер',
     name: 'Контейнер DP колёсик',
     variants: [
       { id: 'v1', name: '60л', packQty: 6, price: 4500 },
@@ -11,7 +13,9 @@ export const products = [
   },
   {
     id: '2',
+    supplierId: 's1',
     categoryId: 'organayzery',
+    type: 'Органайзер',
     name: 'Органайзер заморозки',
     variants: [
       { id: 'v1', name: '29х20,5х5см', packQty: 34, price: 2800 },
@@ -19,7 +23,9 @@ export const products = [
   },
   {
     id: '3',
+    supplierId: 's1',
     categoryId: 'sypuchie',
+    type: 'Для сыпучих',
     name: 'Для сыпучих 1л',
     variants: [
       { id: 'v1', name: '1л', packQty: 40, price: 1200 },
@@ -27,6 +33,7 @@ export const products = [
   },
   {
     id: '4',
+    supplierId: 's1',
     categoryId: 'sypuchie',
     name: 'Банка',
     variants: [
@@ -36,6 +43,7 @@ export const products = [
   },
   {
     id: '5',
+    supplierId: 's1',
     categoryId: 'sovok-venik',
     name: 'Совок+веник ORIGINAL',
     variants: [
@@ -46,6 +54,7 @@ export const products = [
   },
   {
     id: '6',
+    supplierId: 's2',
     categoryId: 'taziki',
     name: 'Таз авал билол',
     variants: [
@@ -56,6 +65,7 @@ export const products = [
   },
   {
     id: '7',
+    supplierId: 's2',
     categoryId: 'taziki',
     name: 'Таз круг билол',
     variants: [
@@ -67,6 +77,7 @@ export const products = [
   },
   {
     id: '8',
+    supplierId: 's2',
     categoryId: 'gorshki',
     name: 'Горшки для цветов',
     variants: [
@@ -80,6 +91,7 @@ export const products = [
   },
   {
     id: '9',
+    supplierId: 's2',
     categoryId: 'chashki',
     name: 'Чашка волна',
     variants: [
@@ -88,6 +100,7 @@ export const products = [
   },
   {
     id: '10',
+    supplierId: 's2',
     categoryId: 'urny',
     name: 'Урна серый большой',
     variants: [
@@ -96,6 +109,7 @@ export const products = [
   },
   {
     id: '11',
+    supplierId: 's3',
     categoryId: 'gorshki',
     name: 'Горшок Трон',
     variants: [
@@ -104,6 +118,7 @@ export const products = [
   },
   {
     id: '12',
+    supplierId: 's3',
     categoryId: 'podnosy',
     name: 'Поднос глубокий',
     variants: [
@@ -113,6 +128,7 @@ export const products = [
   },
   {
     id: '13',
+    supplierId: 's3',
     categoryId: 'kuvshiny',
     name: 'Графин',
     variants: [
@@ -122,6 +138,7 @@ export const products = [
   },
   {
     id: '14',
+    supplierId: 's3',
     categoryId: 'korziny',
     name: 'Корзина красный',
     variants: [
@@ -132,6 +149,7 @@ export const products = [
   },
   {
     id: '15',
+    supplierId: 's3',
     categoryId: 'bochki',
     name: 'Бочки для мука',
     variants: [
