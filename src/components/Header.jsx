@@ -35,7 +35,8 @@ export default function Header({ showCart = false, cartCount = 0, cartTotal = 0,
             </button>
             {menuOpen && (
               <div className="header-menu-box">
-                <Link to="/" className={`header-menu-link ${pathname === '/' ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>Каталог</Link>
+                <Link to="/" className={`header-menu-link ${pathname === '/' ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>Интернет магазин</Link>
+                <Link to="/opt" className={`header-menu-link ${pathname === '/opt' ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>Оптовые закупки</Link>
                 <Link to="/zakup" className={`header-menu-link ${pathname === '/zakup' ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>Отдел закупок</Link>
                 <Link to="/admin" className={`header-menu-link ${pathname === '/admin' ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>Админ</Link>
               </div>

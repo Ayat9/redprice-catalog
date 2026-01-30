@@ -5,7 +5,9 @@ import { CategoriesProvider } from './context/CategoriesContext'
 import { SuppliersProvider } from './context/SuppliersContext'
 import { OrdersProvider } from './context/OrdersContext'
 import { AdminAuthProvider } from './context/AdminAuthContext'
+import { StatsProvider } from './context/StatsContext'
 import Catalog from './pages/Catalog'
+import CatalogWholesale from './pages/CatalogWholesale'
 import CatalogProcurement from './pages/CatalogProcurement'
 import Admin from './pages/Admin'
 import AdminSetPassword from './pages/AdminSetPassword'
@@ -14,6 +16,7 @@ import './App.css'
 function App() {
   return (
     <AdminAuthProvider>
+    <StatsProvider>
     <SuppliersProvider>
     <CategoriesProvider>
     <OrdersProvider>
@@ -21,6 +24,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Catalog />} />
+          <Route path="/opt" element={<CatalogWholesale />} />
           <Route path="/zakup" element={<CatalogProcurement />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/set-password" element={<AdminSetPassword />} />
@@ -30,6 +34,7 @@ function App() {
     </OrdersProvider>
     </CategoriesProvider>
     </SuppliersProvider>
+    </StatsProvider>
     </AdminAuthProvider>
   )
 }

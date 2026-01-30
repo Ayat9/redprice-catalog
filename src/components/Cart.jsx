@@ -19,7 +19,8 @@ function buildInvoicePrintHtml({ items, total, supplierName, invoiceTitle, order
     const name = item.product.name
     const variant = item.variant.name || `упак ${item.variant.packQty}шт`
     const qty = item.packQty * item.variant.packQty
-    const price = item.variant.price.toLocaleString('ru-KZ')
+    const unitPrice = item.unitPrice ?? item.variant.price
+    const price = Number(unitPrice).toLocaleString('ru-KZ')
     const sum = item.total.toLocaleString('ru-KZ')
     return `<tr><td>${i + 1}</td><td>${escapeHtml(name)}</td><td>${escapeHtml(variant)}</td><td>${qty}</td><td>${price}</td><td>${sum}</td></tr>`
   }).join('')
@@ -103,8 +104,8 @@ function buildInvoicePrintHtmlFromOrder(order) {
   </style>
 </head>
 <body>
-  <h1>${order.orderType === 'wholesale' ? 'Заявка оптового клиента' : 'Накладная / Заказ'}</h1>
-  <div class="meta">Дата: ${dateStr}${order.supplierName ? `<br>Поставщик: ${escapeHtml(order.supplierName)}` : ''}${order.orderType === 'wholesale' ? '<br>Оптовый заказ' : ''}</div>
+  <h1>${order.orderType === 'retail' ? 'Заказ интернет-магазина' : order.orderType === 'wholesale' ? 'Заявка оптового клиента' : 'Накладная / Заказ'}</h1>
+  <div class="meta">Дата: ${dateStr}${order.orderType === 'retail' ? `<br>Клиент: ${escapeHtml(order.customerName || '')}<br>Телефон: ${escapeHtml(order.customerPhone || '')}<br>${order.deliveryType === 'pickup' ? 'Самовывоз' : 'Доставка: ' + escapeHtml(order.deliveryAddress || '')}` : ''}${order.supplierName ? `<br>Поставщик: ${escapeHtml(order.supplierName)}` : ''}${order.orderType === 'wholesale' ? '<br>Оптовый заказ' : ''}</div>
   <table>
     <thead>
       <tr><th>№</th><th>Наименование</th><th>Вариант</th><th>Кол-во</th><th>Цена, ₸</th><th>Сумма, ₸</th></tr>
@@ -127,8 +128,15 @@ function openOrderInvoiceAsPdf(order) {
   win.document.close()
 }
 
-export default function Cart({ items, total, supplierId, supplierName, supplierPhone, blockMessage, isOpen, onClose, onClearCart, onSaveOrder, onUpdateQuantity, orders = [], isWholesale = false }) {
+const KASPI_PAY_URL = 'https://pay.kaspi.kz/pay/vaxwszii'
+const FREE_DELIVERY_THRESHOLD = 20000
+
+export default function Cart({ items, total, supplierId, supplierName, supplierPhone, blockMessage, isOpen, onClose, onClearCart, onSaveOrder, onUpdateQuantity, orders = [], isWholesale = false, isRetail = false, kaspiPayUrl = KASPI_PAY_URL }) {
   const [cartTab, setCartTab] = React.useState('cart')
+  const [customerName, setCustomerName] = React.useState('')
+  const [customerPhone, setCustomerPhone] = React.useState('')
+  const [deliveryType, setDeliveryType] = React.useState('delivery')
+  const [deliveryAddress, setDeliveryAddress] = React.useState('')
 
   const buildOrderFromCart = () => ({
     id: `ord_${Date.now()}`,
@@ -142,12 +150,47 @@ export default function Cart({ items, total, supplierId, supplierName, supplierP
       variantId: i.variant.id,
       variantName: i.variant.name || `упак ${i.variant.packQty}шт`,
       packQty: i.packQty,
-      unitPrice: i.variant.price,
+      unitPrice: i.unitPrice ?? i.variant.price,
       unitPerPack: i.variant.packQty,
       total: i.total
     })),
-    total
+    total,
+    ...(isRetail && {
+      orderType: 'retail',
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      deliveryType,
+      deliveryAddress: deliveryType === 'delivery' ? deliveryAddress.trim() : ''
+    })
   })
+
+  const handleRetailCheckout = () => {
+    if (items.length === 0) return
+    const name = customerName.trim()
+    const phone = customerPhone.trim()
+    if (!name) {
+      alert('Укажите имя.')
+      return
+    }
+    if (!phone) {
+      alert('Укажите номер телефона.')
+      return
+    }
+    if (deliveryType === 'delivery' && !deliveryAddress.trim()) {
+      alert('Укажите адрес доставки или выберите самовывоз.')
+      return
+    }
+    try {
+      const order = buildOrderFromCart()
+      if (onSaveOrder) onSaveOrder(order)
+      onClose()
+      if (onClearCart) onClearCart()
+      window.location.href = kaspiPayUrl
+    } catch (e) {
+      console.error(e)
+      alert('Ошибка при оформлении заказа.')
+    }
+  }
 
   const handleCreateInvoice = () => {
     if (items.length === 0) return
@@ -208,7 +251,11 @@ export default function Cart({ items, total, supplierId, supplierName, supplierP
 
         {cartTab === 'cart' && (
           <>
-            {isWholesale ? (
+            {isRetail ? (
+              <div className="cart-supplier cart-supplier-retail">
+                Заказ в интернет-магазине Redprice.kz
+              </div>
+            ) : isWholesale ? (
               <div className="cart-supplier cart-supplier-wholesale">
                 Оптовый заказ — заявка для компании Redprice.kz
               </div>
@@ -237,12 +284,52 @@ export default function Cart({ items, total, supplierId, supplierName, supplierP
                 ))
               )}
             </ul>
+
+            {isRetail && items.length > 0 && (
+              <div className="cart-checkout-form">
+                <p className="cart-checkout-note">При заказе от {FREE_DELIVERY_THRESHOLD.toLocaleString('ru-KZ')} ₸ доставка бесплатная.</p>
+                <div className="cart-form-group">
+                  <label htmlFor="cart-customer-name">Имя <span className="cart-required">*</span></label>
+                  <input id="cart-customer-name" type="text" className="cart-form-input" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Как к вам обращаться" required />
+                </div>
+                <div className="cart-form-group">
+                  <label htmlFor="cart-customer-phone">Телефон <span className="cart-required">*</span></label>
+                  <input id="cart-customer-phone" type="tel" className="cart-form-input" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="+7 (xxx) xxx-xx-xx" required />
+                </div>
+                <div className="cart-form-group">
+                  <span className="cart-form-label">Получение заказа</span>
+                  <div className="cart-radio-group">
+                    <label className="cart-radio-label">
+                      <input type="radio" name="deliveryType" checked={deliveryType === 'delivery'} onChange={() => setDeliveryType('delivery')} />
+                      <span>Доставка</span>
+                    </label>
+                    <label className="cart-radio-label">
+                      <input type="radio" name="deliveryType" checked={deliveryType === 'pickup'} onChange={() => setDeliveryType('pickup')} />
+                      <span>Самовывоз</span>
+                    </label>
+                  </div>
+                </div>
+                {deliveryType === 'delivery' && (
+                  <div className="cart-form-group">
+                    <label htmlFor="cart-delivery-address">Адрес доставки <span className="cart-required">*</span></label>
+                    <input id="cart-delivery-address" type="text" className="cart-form-input" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="Город, улица, дом, квартира" required={deliveryType === 'delivery'} />
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="cart-footer">
               {items.length > 0 && (
                 <>
-                  <button type="button" className="cart-invoice-btn" onClick={handleCreateInvoice} title={isWholesale ? 'Сохранить заявку и открыть накладную для печати' : supplierPhone ? 'Сохранить в историю, открыть PDF и WhatsApp' : 'У поставщика не указан телефон'}>
-                    {isWholesale ? 'Оформить заявку' : 'Сформировать накладную'}
-                  </button>
+                  {isRetail ? (
+                    <button type="button" className="cart-invoice-btn cart-pay-btn" onClick={handleRetailCheckout} title="Сохранить заказ и перейти к оплате в Kaspi">
+                      Перейти к оплате
+                    </button>
+                  ) : (
+                    <button type="button" className="cart-invoice-btn" onClick={handleCreateInvoice} title={isWholesale ? 'Сохранить заявку и открыть накладную для печати' : supplierPhone ? 'Сохранить в историю, открыть PDF и WhatsApp' : 'У поставщика не указан телефон'}>
+                      {isWholesale ? 'Оформить заявку' : 'Сформировать накладную'}
+                    </button>
+                  )}
                   <button type="button" className="cart-clear-btn" onClick={onClearCart}>
                     Очистить корзину
                   </button>
@@ -263,7 +350,7 @@ export default function Cart({ items, total, supplierId, supplierName, supplierP
                   <li key={order.id} className="cart-order-item">
                     <div className="cart-order-meta">
                       <span className="cart-order-date">{new Date(order.createdAt).toLocaleString('ru-KZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                      <span className="cart-order-supplier">{order.orderType === 'wholesale' ? 'Оптовый заказ' : (order.supplierName || '—')}</span>
+                      <span className="cart-order-supplier">{order.orderType === 'retail' ? (order.customerName ? `${order.customerName}, ${order.deliveryType === 'pickup' ? 'самовывоз' : 'доставка'}` : 'Интернет-магазин') : order.orderType === 'wholesale' ? 'Оптовый заказ' : (order.supplierName || '—')}</span>
                       <span className="cart-order-total">{Number(order.total || 0).toLocaleString('ru-KZ')} ₸</span>
                     </div>
                     <button type="button" className="cart-order-invoice-btn" onClick={() => openOrderInvoiceAsPdf(order)} title="Скачать накладную (печать в PDF)">

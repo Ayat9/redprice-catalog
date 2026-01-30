@@ -6,4 +6,14 @@ export default defineConfig({
   optimizeDeps: {
     include: ['antd'],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
 })

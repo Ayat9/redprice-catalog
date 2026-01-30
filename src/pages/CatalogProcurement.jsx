@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState, useMemo, useEffect } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import Header from '../components/Header'
 import { useSeo } from '../hooks/useSeo'
 import Sidebar from '../components/Sidebar'
@@ -10,15 +10,20 @@ import { useSuppliers } from '../context/SuppliersContext'
 import { useCategories } from '../context/CategoriesContext'
 import { useOrders } from '../context/OrdersContext'
 import { useAdminAuth } from '../context/AdminAuthContext'
+import { useStats } from '../context/StatsContext'
+import { getVariantPrice } from '../utils/priceMode'
+import { PRICE_MODES } from '../utils/priceMode'
 
 export default function CatalogProcurement() {
   useSeo({ title: 'Отдел закупок — заказ у поставщиков', description: 'Redprice.kz — каталог по поставщикам для отдела закупок. Оформление заказов, накладные, WhatsApp.' })
 
+  const location = useLocation()
   const { isLoggedIn, login, logout, currentUser } = useAdminAuth()
-  const { products } = useProducts()
+  const { products } = useProducts('procurement')
   const { suppliers } = useSuppliers()
-  const { categories } = useCategories()
+  const { categories } = useCategories('procurement')
   const { orders, addOrder } = useOrders()
+  const { trackVisit, trackConversion } = useStats()
   const [loginEmail, setLoginEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
@@ -31,6 +36,10 @@ export default function CatalogProcurement() {
   const [viewMode, setViewMode] = useState('medium')
 
   const isProcurement = currentUser && currentUser.departmentId === 'procurement'
+
+  useEffect(() => {
+    if (location.pathname === '/zakup') trackVisit('/zakup')
+  }, [location.pathname, trackVisit])
 
   const setSupplier = (id) => {
     setActiveSupplier(id)
@@ -51,14 +60,16 @@ export default function CatalogProcurement() {
     return list
   }, [activeSupplier, activeCategoryId, products])
 
+  const priceMode = PRICE_MODES.supplier
   const { cartCount, cartTotal, cartItems, cartSupplierId, cartSupplierName, cartSupplierPhone } = useMemo(() => {
     let count = 0
     let total = 0
     const items = cart.map(({ product, variant, packQty }) => {
-      const itemTotal = variant.price * packQty * variant.packQty
+      const unitPrice = getVariantPrice(variant, priceMode)
+      const itemTotal = unitPrice * packQty * variant.packQty
       count += packQty * variant.packQty
       total += itemTotal
-      return { product, variant, packQty, total: itemTotal }
+      return { product, variant, packQty, total: itemTotal, unitPrice }
     })
     const sid = cart[0]?.product?.supplierId
     const supplier = sid ? suppliers.find((s) => s.id === sid) : null
@@ -70,7 +81,7 @@ export default function CatalogProcurement() {
       cartSupplierName: supplier?.name ?? null,
       cartSupplierPhone: supplier?.phone ?? null
     }
-  }, [cart, suppliers])
+  }, [cart, suppliers, priceMode])
 
   const addToCart = (product, variant, packQty) => {
     setCartBlockMessage('')
@@ -244,6 +255,7 @@ export default function CatalogProcurement() {
                     key={product.id}
                     product={product}
                     view={viewMode}
+                    priceMode={priceMode}
                     onAddToCart={addToCart}
                     onDecreaseFromCart={decreaseFromCart}
                     getCartQty={getCartQty}
@@ -268,7 +280,10 @@ export default function CatalogProcurement() {
         isOpen={cartOpen}
         onClose={() => setCartOpen(false)}
         onClearCart={clearCart}
-        onSaveOrder={addOrder}
+        onSaveOrder={(order) => {
+          trackConversion({ section: 'procurement', total: order.total, path: '/zakup', supplierName: order.supplierName })
+          addOrder(order)
+        }}
         onUpdateQuantity={updateCartQty}
         orders={orders}
       />

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
+import { getVariantPrice } from '../utils/priceMode'
 
-export default function ProductCard({ product, view = 'medium', onAddToCart, onDecreaseFromCart, getCartQty, showCartActions = true }) {
+export default function ProductCard({ product, view = 'medium', onAddToCart, onDecreaseFromCart, getCartQty, showCartActions = true, priceMode }) {
   const [imageOpen, setImageOpen] = useState(false)
 
   return (
@@ -26,6 +27,7 @@ export default function ProductCard({ product, view = 'medium', onAddToCart, onD
             key={v.id}
             product={product}
             variant={v}
+            priceMode={priceMode}
             onAddToCart={onAddToCart}
             onDecreaseFromCart={onDecreaseFromCart}
             cartQty={getCartQty ? getCartQty(product, v) : 0}
@@ -37,14 +39,15 @@ export default function ProductCard({ product, view = 'medium', onAddToCart, onD
   )
 }
 
-function VariantRow({ product, variant, onAddToCart, onDecreaseFromCart, cartQty, showCartActions = true }) {
+function VariantRow({ product, variant, priceMode, onAddToCart, onDecreaseFromCart, cartQty, showCartActions = true }) {
   const nameLabel = variant.name || 'Вариант'
-  const total = variant.price * cartQty * variant.packQty
+  const unitPrice = getVariantPrice(variant, priceMode)
+  const total = unitPrice * cartQty * variant.packQty
 
   return (
     <div className="variant-row">
       <span className="variant-label variant-label-name">Название: <strong>{nameLabel}</strong></span>
-      <span className="variant-label variant-label-meta">Цена: <strong>{variant.price.toLocaleString('ru-KZ')} ₸</strong> за упак · В упаковке: <strong>{variant.packQty} шт</strong></span>
+      <span className="variant-label variant-label-meta">Цена: <strong>{unitPrice.toLocaleString('ru-KZ')} ₸</strong> за упак · В упаковке: <strong>{variant.packQty} шт</strong></span>
       {showCartActions && (
         <>
           <div className="variant-actions">
@@ -61,7 +64,7 @@ function VariantRow({ product, variant, onAddToCart, onDecreaseFromCart, cartQty
             <button
               type="button"
               className="btn-qty btn-qty-plus"
-              onClick={() => onAddToCart(product, variant, 1)}
+              onClick={() => onAddToCart(product, variant, 1, priceMode)}
               title="Добавить в корзину"
             >
               +

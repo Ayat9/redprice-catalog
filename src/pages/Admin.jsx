@@ -4,15 +4,25 @@ import { useProducts } from '../context/ProductsContext'
 import { useCategories } from '../context/CategoriesContext'
 import { useSuppliers } from '../context/SuppliersContext'
 import { useAdminAuth } from '../context/AdminAuthContext'
+import { useStats } from '../context/StatsContext'
+import { ensureBarcode, generateEAN13 } from '../utils/barcode'
 import './Admin.css'
 
-const VIEWS = { products: 'products', suppliers: 'suppliers', categories: 'categories', newProduct: 'newProduct', newCategory: 'newCategory', newSupplier: 'newSupplier', users: 'users', newUser: 'newUser' }
+const VIEWS = { products: 'products', suppliers: 'suppliers', categories: 'categories', newProduct: 'newProduct', newCategory: 'newCategory', newSupplier: 'newSupplier', users: 'users', newUser: 'newUser', statistics: 'statistics', settingsPlatform: 'settingsPlatform', settingsWholesale: 'settingsWholesale', settingsProcurement: 'settingsProcurement' }
+
+const ADMIN_SECTIONS = [
+  { id: 'platform', name: 'Интернет магазин' },
+  { id: 'wholesale', name: 'Оптовые закупки' },
+  { id: 'procurement', name: 'Отдел закупок' }
+]
 
 export default function Admin() {
   const { isLoggedIn, login, logout, currentUser, canEdit, canManageUsers, requestPasswordReset, getUsers, addUser, updateUser, deleteUser, DEPARTMENTS, ROLES } = useAdminAuth()
-  const { products, setProducts } = useProducts()
-  const { categories, setCategories } = useCategories()
+  const [adminSection, setAdminSection] = useState('platform')
+  const { products, setProducts } = useProducts(adminSection)
+  const { categories, setCategories } = useCategories(adminSection)
   const { suppliers, setSuppliers } = useSuppliers()
+  const { stats, setSettings, getSettings } = useStats()
   const [view, setView] = useState(VIEWS.products)
   const [loginEmail, setLoginEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -29,6 +39,11 @@ export default function Admin() {
   useEffect(() => {
     if (!canEdit && (view === VIEWS.newProduct || view === VIEWS.newSupplier || view === VIEWS.newCategory)) setView(VIEWS.products)
   }, [canEdit, view])
+
+  useEffect(() => {
+    setProductFilter({ search: '', supplierId: '', categoryId: '' })
+    if (adminSection !== 'procurement' && (view === VIEWS.suppliers || view === VIEWS.newSupplier)) setView(VIEWS.products)
+  }, [adminSection])
   const [editingProduct, setEditingProduct] = useState(null)
   const [editingCategory, setEditingCategory] = useState(null)
   const [editingSupplier, setEditingSupplier] = useState(null)
@@ -59,9 +74,17 @@ export default function Admin() {
       name: product.name,
       type: product.type || '',
       imageUrl: product.imageUrl || '',
-      supplierId: product.supplierId || suppliers[0]?.id,
+      article: product.article ?? '',
+      barcode: product.barcode ?? '',
+      supplierId: product.supplierId ?? (adminSection === 'procurement' ? suppliers[0]?.id : ''),
       categoryId: product.categoryId,
-      variants: product.variants.map((v) => ({ ...v }))
+      variants: product.variants.map((v) => ({
+        ...v,
+        price: v.price ?? 0,
+        priceRetail: v.priceRetail ?? v.price ?? 0,
+        priceWholesale: v.priceWholesale ?? v.price ?? 0,
+        priceSupplier: v.priceSupplier ?? v.price ?? 0
+      }))
     })
   }
 
@@ -74,8 +97,10 @@ export default function Admin() {
 
   const saveProduct = () => {
     if (!productForm) return
+    const barcode = ensureBarcode(productForm.barcode, productForm.id)
+    const form = { ...productForm, barcode }
     setProducts((prev) =>
-      prev.map((p) => (p.id === productForm.id ? { ...p, ...productForm } : p))
+      prev.map((p) => (p.id === form.id ? { ...p, ...form } : p))
     )
     closeEditProduct()
   }
@@ -88,13 +113,14 @@ export default function Admin() {
     setProductForm((f) => {
       if (!f) return f
       const v = [...f.variants]
-      v[index] = { ...v[index], [field]: field === 'packQty' || field === 'price' ? Number(value) || 0 : value }
+      const numFields = ['packQty', 'price', 'priceRetail', 'priceWholesale', 'priceSupplier']
+      v[index] = { ...v[index], [field]: numFields.includes(field) ? Number(value) || 0 : value }
       return { ...f, variants: v }
     })
   }
 
   const addProductVariant = () => {
-    setProductForm((f) => f ? { ...f, variants: [...f.variants, { id: `v${Date.now()}`, name: '', packQty: 1, price: 0 }] } : f)
+    setProductForm((f) => f ? { ...f, variants: [...f.variants, { id: `v${Date.now()}`, name: '', packQty: 1, price: 0, priceRetail: 0, priceWholesale: 0, priceSupplier: 0 }] } : f)
   }
 
   const removeProductVariant = (index) => {
@@ -134,14 +160,16 @@ export default function Admin() {
       name: '',
       type: '',
       imageUrl: '',
-      supplierId: suppliers[0]?.id || '',
+      article: '',
+      barcode: '',
+      supplierId: adminSection === 'procurement' ? (suppliers[0]?.id || '') : '',
       categoryId: categories[0]?.id || '',
-      variants: [{ id: `v${Date.now()}`, name: '', packQty: 1, price: 0 }]
+      variants: [{ id: `v${Date.now()}`, name: '', packQty: 1, price: 0, priceRetail: 0, priceWholesale: 0, priceSupplier: 0 }]
     })
   }
 
   const addNewProductVariant = () => {
-    setNewProductForm((f) => f ? { ...f, variants: [...f.variants, { id: `v${Date.now()}`, name: '', packQty: 1, price: 0 }] } : f)
+    setNewProductForm((f) => f ? { ...f, variants: [...f.variants, { id: `v${Date.now()}`, name: '', packQty: 1, price: 0, priceRetail: 0, priceWholesale: 0, priceSupplier: 0 }] } : f)
   }
 
   const removeNewProductVariant = (index) => {
@@ -156,7 +184,8 @@ export default function Admin() {
     setNewProductForm((f) => {
       if (!f) return f
       const v = [...f.variants]
-      v[index] = { ...v[index], [field]: field === 'packQty' || field === 'price' ? Number(value) || 0 : value }
+      const numFields = ['packQty', 'price', 'priceRetail', 'priceWholesale', 'priceSupplier']
+      v[index] = { ...v[index], [field]: numFields.includes(field) ? Number(value) || 0 : value }
       return { ...f, variants: v }
     })
   }
@@ -164,7 +193,9 @@ export default function Admin() {
   const createProduct = () => {
     if (!newProductForm || !newProductForm.name.trim()) return
     const id = `p${Date.now()}`
-    setProducts((prev) => [...prev, { ...newProductForm, id }])
+    const article = (newProductForm.article || '').trim() || `ART-${Date.now()}`
+    const barcode = ensureBarcode(newProductForm.barcode, id)
+    setProducts((prev) => [...prev, { ...newProductForm, id, article, barcode }])
     setView(VIEWS.products)
     setNewProductForm(null)
   }
@@ -260,7 +291,7 @@ export default function Admin() {
     let list = [...products]
     if (productFilter.search) {
       const q = productFilter.search.toLowerCase()
-      list = list.filter((p) => p.name?.toLowerCase().includes(q) || suppliers.find((s) => s.id === p.supplierId)?.name?.toLowerCase().includes(q) || categories.find((c) => c.id === p.categoryId)?.name?.toLowerCase().includes(q))
+      list = list.filter((p) => p.name?.toLowerCase().includes(q) || categories.find((c) => c.id === p.categoryId)?.name?.toLowerCase().includes(q) || (adminSection === 'procurement' && suppliers.find((s) => s.id === p.supplierId)?.name?.toLowerCase().includes(q)))
     }
     if (productFilter.supplierId) list = list.filter((p) => p.supplierId === productFilter.supplierId)
     if (productFilter.categoryId) list = list.filter((p) => p.categoryId === productFilter.categoryId)
@@ -273,7 +304,7 @@ export default function Admin() {
       return productSort.dir === 'asc' ? cmp : -cmp
     })
     return list
-  }, [products, productFilter, productSort, suppliers, categories])
+  }, [products, productFilter, productSort, suppliers, categories, adminSection])
 
   const filteredCategories = React.useMemo(() => {
     let list = [...categories]
@@ -450,8 +481,14 @@ export default function Admin() {
           <span className="admin-user-info">{currentUser?.name || currentUser?.email} ({ROLES.find((r) => r.id === currentUser?.roleId)?.name || currentUser?.roleId})</span>
           <button type="button" className="admin-logout" onClick={logout}>Выйти</button>
         </div>
+        <div className="admin-section-switcher">
+          <span className="admin-section-switcher-label">Раздел:</span>
+          {ADMIN_SECTIONS.map((s) => (
+            <button key={s.id} type="button" className={`admin-section-btn ${adminSection === s.id ? 'active' : ''}`} onClick={() => setAdminSection(s.id)}>{s.name}</button>
+          ))}
+        </div>
         <h1>Админ-панель</h1>
-        <p>Управление каталогом, категориями и товарами</p>
+        <p>Категории и товары раздела «{ADMIN_SECTIONS.find((s) => s.id === adminSection)?.name}». Настройки — отдельно в меню.</p>
       </header>
 
       <div className="admin-layout">
@@ -461,11 +498,13 @@ export default function Admin() {
             <button type="button" className={`admin-nav-item ${view === VIEWS.products ? 'active' : ''}`} onClick={() => setView(VIEWS.products)}>Список товаров</button>
             {canEdit && <button type="button" className={`admin-nav-item admin-nav-item-sub ${view === VIEWS.newProduct ? 'active' : ''}`} onClick={initNewProduct}>+ Новый товар</button>}
           </div>
-          <div className="admin-nav-group">
-            <div className="admin-nav-group-title">Поставщики</div>
-            <button type="button" className={`admin-nav-item ${view === VIEWS.suppliers ? 'active' : ''}`} onClick={() => setView(VIEWS.suppliers)}>Список поставщиков</button>
-            {canEdit && <button type="button" className={`admin-nav-item admin-nav-item-sub ${view === VIEWS.newSupplier ? 'active' : ''}`} onClick={initNewSupplier}>+ Новый поставщик</button>}
-          </div>
+          {adminSection === 'procurement' && (
+            <div className="admin-nav-group">
+              <div className="admin-nav-group-title">Поставщики</div>
+              <button type="button" className={`admin-nav-item ${view === VIEWS.suppliers ? 'active' : ''}`} onClick={() => setView(VIEWS.suppliers)}>Список поставщиков</button>
+              {canEdit && <button type="button" className={`admin-nav-item admin-nav-item-sub ${view === VIEWS.newSupplier ? 'active' : ''}`} onClick={initNewSupplier}>+ Новый поставщик</button>}
+            </div>
+          )}
           <div className="admin-nav-group">
             <div className="admin-nav-group-title">Категории</div>
             <button type="button" className={`admin-nav-item ${view === VIEWS.categories ? 'active' : ''}`} onClick={() => setView(VIEWS.categories)}>Список категорий</button>
@@ -478,6 +517,16 @@ export default function Admin() {
               <button type="button" className={`admin-nav-item admin-nav-item-sub ${view === VIEWS.newUser ? 'active' : ''}`} onClick={initNewUser}>+ Новый сотрудник</button>
             </div>
           )}
+          <div className="admin-nav-group">
+            <div className="admin-nav-group-title">Настройки разделов</div>
+            <button type="button" className={`admin-nav-item ${view === VIEWS.settingsPlatform ? 'active' : ''}`} onClick={() => setView(VIEWS.settingsPlatform)}>Интернет магазин</button>
+            <button type="button" className={`admin-nav-item ${view === VIEWS.settingsWholesale ? 'active' : ''}`} onClick={() => setView(VIEWS.settingsWholesale)}>Оптовые закупки</button>
+            <button type="button" className={`admin-nav-item ${view === VIEWS.settingsProcurement ? 'active' : ''}`} onClick={() => setView(VIEWS.settingsProcurement)}>Отдел закупок</button>
+          </div>
+          <div className="admin-nav-group">
+            <div className="admin-nav-group-title">Статистика</div>
+            <button type="button" className={`admin-nav-item ${view === VIEWS.statistics ? 'active' : ''}`} onClick={() => setView(VIEWS.statistics)}>Посещения, поиск, конверсия</button>
+          </div>
         </nav>
 
         <div className="admin-content">
@@ -485,11 +534,13 @@ export default function Admin() {
             <div className="admin-section">
               <h2 className="admin-section-title">Редактирование товаров</h2>
               <div className="admin-filters">
-                <input type="text" placeholder="Поиск по названию, поставщику, категории" value={productFilter.search} onChange={(e) => setProductFilter((f) => ({ ...f, search: e.target.value }))} className="admin-input admin-filter-input" />
-                <select value={productFilter.supplierId} onChange={(e) => setProductFilter((f) => ({ ...f, supplierId: e.target.value }))} className="admin-input admin-filter-select">
-                  <option value="">Все поставщики</option>
-                  {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <input type="text" placeholder="Поиск по названию, категории" value={productFilter.search} onChange={(e) => setProductFilter((f) => ({ ...f, search: e.target.value }))} className="admin-input admin-filter-input" />
+                {adminSection === 'procurement' && (
+                  <select value={productFilter.supplierId} onChange={(e) => setProductFilter((f) => ({ ...f, supplierId: e.target.value }))} className="admin-input admin-filter-select">
+                    <option value="">Все поставщики</option>
+                    {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                )}
                 <select value={productFilter.categoryId} onChange={(e) => setProductFilter((f) => ({ ...f, categoryId: e.target.value }))} className="admin-input admin-filter-select">
                   <option value="">Все категории</option>
                   {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -499,9 +550,13 @@ export default function Admin() {
                   <select value={`${productSort.field}-${productSort.dir}`} onChange={(e) => { const v = e.target.value; const [field, dir] = v.split('-'); setProductSort({ field, dir }); }} className="admin-input admin-filter-select">
                     <option value="name-asc">Название А–Я</option>
                     <option value="name-desc">Название Я–А</option>
-                    <option value="supplierId-asc">Поставщик А–Я</option>
-                    <option value="supplierId-desc">Поставщик Я–А</option>
-                    <option value="categoryId-asc">Категория А–Я</option>
+                    {adminSection === 'procurement' && (
+                    <>
+                      <option value="supplierId-asc">Поставщик А–Я</option>
+                      <option value="supplierId-desc">Поставщик Я–А</option>
+                    </>
+                  )}
+                  <option value="categoryId-asc">Категория А–Я</option>
                     <option value="categoryId-desc">Категория Я–А</option>
                   </select>
                 </div>
@@ -512,8 +567,10 @@ export default function Admin() {
                     <tr>
                       <th>Фото</th>
                       <th>Название</th>
+                      <th>Артикул</th>
+                      <th>Штрихкод</th>
                       <th>Тип</th>
-                      <th>Поставщик</th>
+                      {adminSection === 'procurement' && <th>Поставщик</th>}
                       <th>Категория</th>
                       <th>Варианты</th>
                       <th></th>
@@ -526,8 +583,10 @@ export default function Admin() {
                           {p.imageUrl ? <img src={p.imageUrl} alt="" className="admin-thumb" /> : <span className="admin-no-photo">—</span>}
                         </td>
                         <td>{p.name}</td>
+                        <td><code className="admin-code admin-code-sm">{p.article || '—'}</code></td>
+                        <td><code className="admin-code admin-code-sm">{p.barcode || '—'}</code></td>
                         <td>{p.type || '—'}</td>
-                        <td>{suppliers.find((s) => s.id === p.supplierId)?.name ?? p.supplierId ?? '—'}</td>
+                        {adminSection === 'procurement' && <td>{suppliers.find((s) => s.id === p.supplierId)?.name ?? p.supplierId ?? '—'}</td>}
                         <td>{categories.find((c) => c.id === p.categoryId)?.name ?? p.categoryId}</td>
                         <td>{p.variants?.length ?? 0}</td>
                         <td>
@@ -645,6 +704,14 @@ export default function Admin() {
               <h2 className="admin-section-title">Создание товара</h2>
               <div className="admin-form-card">
                 <label>Название <input type="text" value={newProductForm.name} onChange={(e) => updateNewProduct('name', e.target.value)} className="admin-input" /></label>
+                <label>Артикул <input type="text" value={newProductForm.article || ''} onChange={(e) => updateNewProduct('article', e.target.value)} className="admin-input" placeholder="ART-001 или будет сгенерирован" /></label>
+                <label className="admin-label-with-btn">
+                  Штрихкод
+                  <span className="admin-input-row">
+                    <input type="text" value={newProductForm.barcode || ''} onChange={(e) => updateNewProduct('barcode', e.target.value)} className="admin-input" placeholder="Оставьте пусто — сгенерируется при сохранении" />
+                    <button type="button" className="btn-edit admin-btn-sm" onClick={() => updateNewProduct('barcode', generateEAN13())}>Сгенерировать</button>
+                  </span>
+                </label>
                 <label>Тип <input type="text" value={newProductForm.type || ''} onChange={(e) => updateNewProduct('type', e.target.value)} className="admin-input" placeholder="Например: Контейнер, Органайзер" /></label>
                 <div className="admin-photo-block">
                   <label className="admin-photo-label">Фото товара</label>
@@ -659,22 +726,24 @@ export default function Admin() {
                   </div>
                   {newProductForm.imageUrl && <img src={newProductForm.imageUrl} alt="" className="admin-preview" onError={(e) => { e.target.style.display = 'none' }} />}
                 </div>
-                <div className="admin-select-with-add">
-                  <label>Поставщик
-                    <select value={newProductForm.supplierId} onChange={(e) => updateNewProduct('supplierId', e.target.value)} className="admin-input">
-                      {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                  </label>
-                  <button type="button" className="btn-inline-add" onClick={() => setShowInlineNewSupplier(!showInlineNewSupplier)}>{showInlineNewSupplier ? 'Скрыть' : '+ Добавить поставщика'}</button>
-                  {showInlineNewSupplier && (
-                    <div className="admin-inline-form">
-                      <input type="text" value={inlineSupplierForm.name} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, name: e.target.value }))} placeholder="Наименование компании" className="admin-input" />
-                      <input type="text" value={inlineSupplierForm.phone} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Сотовый телефон" className="admin-input" />
-                      <input type="text" value={inlineSupplierForm.address} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, address: e.target.value }))} placeholder="Адрес компании" className="admin-input" />
-                      <button type="button" className="btn-save btn-inline-save" onClick={() => createSupplierInline((id) => updateNewProduct('supplierId', id))}>Создать и выбрать</button>
-                    </div>
-                  )}
-                </div>
+                {adminSection === 'procurement' && (
+                  <div className="admin-select-with-add">
+                    <label>Поставщик
+                      <select value={newProductForm.supplierId} onChange={(e) => updateNewProduct('supplierId', e.target.value)} className="admin-input">
+                        {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    </label>
+                    <button type="button" className="btn-inline-add" onClick={() => setShowInlineNewSupplier(!showInlineNewSupplier)}>{showInlineNewSupplier ? 'Скрыть' : '+ Добавить поставщика'}</button>
+                    {showInlineNewSupplier && (
+                      <div className="admin-inline-form">
+                        <input type="text" value={inlineSupplierForm.name} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, name: e.target.value }))} placeholder="Наименование компании" className="admin-input" />
+                        <input type="text" value={inlineSupplierForm.phone} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Сотовый телефон" className="admin-input" />
+                        <input type="text" value={inlineSupplierForm.address} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, address: e.target.value }))} placeholder="Адрес компании" className="admin-input" />
+                        <button type="button" className="btn-save btn-inline-save" onClick={() => createSupplierInline((id) => updateNewProduct('supplierId', id))}>Создать и выбрать</button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="admin-select-with-add">
                   <label>Категория
                     <select value={newProductForm.categoryId} onChange={(e) => updateNewProduct('categoryId', e.target.value)} className="admin-input">
@@ -694,17 +763,21 @@ export default function Admin() {
                     <span>Варианты</span>
                     <button type="button" className="btn-add-variant" onClick={addNewProductVariant}>+ Вариант</button>
                   </div>
-                  <div className="admin-variant-header">
+                  <div className="admin-variant-header admin-variant-header-prices">
                     <span className="admin-variant-label-name">Название</span>
-                    <span className="admin-variant-label-qty">Кол-во в упак (шт)</span>
-                    <span className="admin-variant-label-price">Цена (₸)</span>
+                    <span className="admin-variant-label-qty">В упак.</span>
+                    <span className="admin-variant-label-price">Розница ₸</span>
+                    <span className="admin-variant-label-price">Опт ₸</span>
+                    <span className="admin-variant-label-price">Поставщик ₸</span>
                     <span className="admin-variant-label-action" />
                   </div>
                   {newProductForm.variants.map((v, i) => (
                     <div key={v.id} className="admin-variant-row">
-                      <input type="text" value={v.name ?? ''} onChange={(e) => updateNewProductVariant(i, 'name', e.target.value)} placeholder="Название варианта" className="admin-input admin-input-sm" />
-                      <input type="number" min="1" value={v.packQty} onChange={(e) => updateNewProductVariant(i, 'packQty', e.target.value)} placeholder="шт" className="admin-input admin-input-num" title="Количество в упаковке" />
-                      <input type="number" min="0" value={v.price} onChange={(e) => updateNewProductVariant(i, 'price', e.target.value)} placeholder="₸" className="admin-input admin-input-num" title="Цена за упаковку" />
+                      <input type="text" value={v.name ?? ''} onChange={(e) => updateNewProductVariant(i, 'name', e.target.value)} placeholder="Название" className="admin-input admin-input-sm" />
+                      <input type="number" min="1" value={v.packQty ?? 1} onChange={(e) => updateNewProductVariant(i, 'packQty', e.target.value)} className="admin-input admin-input-num" title="В упаковке (шт)" />
+                      <input type="number" min="0" value={v.priceRetail ?? v.price ?? 0} onChange={(e) => updateNewProductVariant(i, 'priceRetail', e.target.value)} className="admin-input admin-input-num" title="Розница" />
+                      <input type="number" min="0" value={v.priceWholesale ?? v.price ?? 0} onChange={(e) => updateNewProductVariant(i, 'priceWholesale', e.target.value)} className="admin-input admin-input-num" title="Опт" />
+                      <input type="number" min="0" value={v.priceSupplier ?? v.price ?? 0} onChange={(e) => updateNewProductVariant(i, 'priceSupplier', e.target.value)} className="admin-input admin-input-num" title="Поставщик" />
                       <button type="button" className="btn-remove-variant" onClick={() => removeNewProductVariant(i)} title="Удалить вариант">Удалить</button>
                     </div>
                   ))}
@@ -820,6 +893,81 @@ export default function Admin() {
               </div>
             </div>
           )}
+
+          {view === VIEWS.statistics && (
+            <div className="admin-section">
+              <h2 className="admin-section-title">Статистика сайта</h2>
+              <p className="admin-section-desc">Посещения страниц, поисковые запросы и конверсии (оформленные заказы).</p>
+              <div className="admin-stats-grid">
+                <div className="admin-stats-card">
+                  <h3>Посещения</h3>
+                  <p className="admin-stats-count">{(stats.visits || []).length}</p>
+                  <p className="admin-stats-hint">Всего визитов за период</p>
+                  <div className="admin-stats-recent">
+                    <strong>Последние:</strong>
+                    {(stats.visits || []).slice(-10).reverse().map((e, i) => (
+                      <div key={i} className="admin-stats-row"><span>{e.path}</span><span>{e.at ? new Date(e.at).toLocaleString('ru-KZ') : ''}</span></div>
+                    ))}
+                  </div>
+                </div>
+                <div className="admin-stats-card">
+                  <h3>Поиск товара</h3>
+                  <p className="admin-stats-count">{(stats.searches || []).length}</p>
+                  <p className="admin-stats-hint">Всего поисковых запросов</p>
+                  <div className="admin-stats-recent">
+                    <strong>Последние:</strong>
+                    {(stats.searches || []).slice(-10).reverse().map((e, i) => (
+                      <div key={i} className="admin-stats-row"><span>«{e.q}»</span><span>{e.at ? new Date(e.at).toLocaleString('ru-KZ') : ''}</span></div>
+                    ))}
+                  </div>
+                </div>
+                <div className="admin-stats-card">
+                  <h3>Конверсия (заказы)</h3>
+                  <p className="admin-stats-count">{(stats.conversions || []).length}</p>
+                  <p className="admin-stats-hint">Оформлено заказов</p>
+                  <div className="admin-stats-recent">
+                    <strong>Последние:</strong>
+                    {(stats.conversions || []).slice(-10).reverse().map((e, i) => (
+                      <div key={i} className="admin-stats-row"><span>{e.section || '—'} · {Number(e.total || 0).toLocaleString('ru-KZ')} ₸</span><span>{e.at ? new Date(e.at).toLocaleString('ru-KZ') : ''}</span></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {view === VIEWS.settingsPlatform && (
+            <div className="admin-section admin-form-section">
+              <h2 className="admin-section-title">Настройки раздела «Интернет магазин»</h2>
+              <p className="admin-section-desc">Параметры интернет-магазина (главная страница).</p>
+              <div className="admin-form-card">
+                <label>Минимальная сумма заказа (₸) <input type="number" min="0" value={getSettings('platform').minOrderSum ?? 0} onChange={(e) => setSettings('platform', { minOrderSum: Number(e.target.value) || 0 })} className="admin-input" /></label>
+                <label>Название сайта <input type="text" value={getSettings('platform').siteName ?? 'Redprice.kz'} onChange={(e) => setSettings('platform', { siteName: e.target.value })} className="admin-input" /></label>
+                <label>Валюта <input type="text" value={getSettings('platform').currency ?? '₸'} onChange={(e) => setSettings('platform', { currency: e.target.value })} className="admin-input" placeholder="₸" /></label>
+              </div>
+            </div>
+          )}
+
+          {view === VIEWS.settingsWholesale && (
+            <div className="admin-section admin-form-section">
+              <h2 className="admin-section-title">Настройки раздела «Оптовые закупки»</h2>
+              <p className="admin-section-desc">Параметры каталога оптовых закупок (/opt).</p>
+              <div className="admin-form-card">
+                <label>Минимальная сумма заказа (₸) <input type="number" min="0" value={getSettings('wholesale').minOrderSum ?? 0} onChange={(e) => setSettings('wholesale', { minOrderSum: Number(e.target.value) || 0 })} className="admin-input" /></label>
+                <label>Валюта <input type="text" value={getSettings('wholesale').currency ?? '₸'} onChange={(e) => setSettings('wholesale', { currency: e.target.value })} className="admin-input" /></label>
+              </div>
+            </div>
+          )}
+
+          {view === VIEWS.settingsProcurement && (
+            <div className="admin-section admin-form-section">
+              <h2 className="admin-section-title">Настройки раздела «Отдел закупок»</h2>
+              <p className="admin-section-desc">Параметры каталога для отдела закупок (/zakup).</p>
+              <div className="admin-form-card">
+                <label>Валюта <input type="text" value={getSettings('procurement').currency ?? '₸'} onChange={(e) => setSettings('procurement', { currency: e.target.value })} className="admin-input" /></label>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -833,6 +981,14 @@ export default function Admin() {
             </div>
             <div className="admin-modal-body">
               <label>Название <input type="text" value={productForm.name} onChange={(e) => updateProductForm('name', e.target.value)} className="admin-input" /></label>
+              <label>Артикул <input type="text" value={productForm.article || ''} onChange={(e) => updateProductForm('article', e.target.value)} className="admin-input" placeholder="ART-001" /></label>
+              <label className="admin-label-with-btn">
+                Штрихкод
+                <span className="admin-input-row">
+                  <input type="text" value={productForm.barcode || ''} onChange={(e) => updateProductForm('barcode', e.target.value)} className="admin-input" placeholder="EAN-13 или оставьте пусто" />
+                  <button type="button" className="btn-edit admin-btn-sm" onClick={() => updateProductForm('barcode', generateEAN13(productForm.id))}>Сгенерировать</button>
+                </span>
+              </label>
               <label>Тип <input type="text" value={productForm.type || ''} onChange={(e) => updateProductForm('type', e.target.value)} className="admin-input" placeholder="Например: Контейнер, Органайзер" /></label>
               <div className="admin-photo-block">
                 <label className="admin-photo-label">Фото товара</label>
@@ -847,22 +1003,24 @@ export default function Admin() {
                 </div>
                 {productForm.imageUrl && <img src={productForm.imageUrl} alt="" className="admin-preview" onError={(e) => { e.target.style.display = 'none' }} />}
               </div>
-              <div className="admin-select-with-add">
-                <label>Поставщик
-                  <select value={productForm.supplierId} onChange={(e) => updateProductForm('supplierId', e.target.value)} className="admin-input">
-                    {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </label>
-                <button type="button" className="btn-inline-add" onClick={() => setShowInlineNewSupplierModal(!showInlineNewSupplierModal)}>{showInlineNewSupplierModal ? 'Скрыть' : '+ Добавить поставщика'}</button>
-                {showInlineNewSupplierModal && (
-                  <div className="admin-inline-form">
-                    <input type="text" value={inlineSupplierForm.name} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, name: e.target.value }))} placeholder="Наименование компании" className="admin-input" />
-                    <input type="text" value={inlineSupplierForm.phone} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Сотовый телефон" className="admin-input" />
-                    <input type="text" value={inlineSupplierForm.address} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, address: e.target.value }))} placeholder="Адрес компании" className="admin-input" />
-                    <button type="button" className="btn-save btn-inline-save" onClick={() => createSupplierInline((id) => updateProductForm('supplierId', id))}>Создать и выбрать</button>
-                  </div>
-                )}
-              </div>
+              {adminSection === 'procurement' && (
+                <div className="admin-select-with-add">
+                  <label>Поставщик
+                    <select value={productForm.supplierId} onChange={(e) => updateProductForm('supplierId', e.target.value)} className="admin-input">
+                      {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </label>
+                  <button type="button" className="btn-inline-add" onClick={() => setShowInlineNewSupplierModal(!showInlineNewSupplierModal)}>{showInlineNewSupplierModal ? 'Скрыть' : '+ Добавить поставщика'}</button>
+                  {showInlineNewSupplierModal && (
+                    <div className="admin-inline-form">
+                      <input type="text" value={inlineSupplierForm.name} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, name: e.target.value }))} placeholder="Наименование компании" className="admin-input" />
+                      <input type="text" value={inlineSupplierForm.phone} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Сотовый телефон" className="admin-input" />
+                      <input type="text" value={inlineSupplierForm.address} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, address: e.target.value }))} placeholder="Адрес компании" className="admin-input" />
+                      <button type="button" className="btn-save btn-inline-save" onClick={() => createSupplierInline((id) => updateProductForm('supplierId', id))}>Создать и выбрать</button>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="admin-select-with-add">
                 <label>Категория
                   <select value={productForm.categoryId} onChange={(e) => updateProductForm('categoryId', e.target.value)} className="admin-input">
@@ -882,17 +1040,21 @@ export default function Admin() {
                   <span>Варианты</span>
                   <button type="button" className="btn-add-variant" onClick={addProductVariant}>+ Вариант</button>
                 </div>
-                <div className="admin-variant-header">
+                <div className="admin-variant-header admin-variant-header-prices">
                   <span className="admin-variant-label-name">Название</span>
-                  <span className="admin-variant-label-qty">Кол-во в упак (шт)</span>
-                  <span className="admin-variant-label-price">Цена (₸)</span>
+                  <span className="admin-variant-label-qty">В упак.</span>
+                  <span className="admin-variant-label-price">Розница ₸</span>
+                  <span className="admin-variant-label-price">Опт ₸</span>
+                  <span className="admin-variant-label-price">Поставщик ₸</span>
                   <span className="admin-variant-label-action" />
                 </div>
                 {productForm.variants.map((v, i) => (
                   <div key={v.id} className="admin-variant-row">
-                    <input type="text" value={v.name ?? ''} onChange={(e) => updateProductVariant(i, 'name', e.target.value)} placeholder="Название варианта" className="admin-input admin-input-sm" />
-                    <input type="number" min="1" value={v.packQty} onChange={(e) => updateProductVariant(i, 'packQty', e.target.value)} className="admin-input admin-input-num" title="Количество в упаковке" />
-                    <input type="number" min="0" value={v.price} onChange={(e) => updateProductVariant(i, 'price', e.target.value)} className="admin-input admin-input-num" title="Цена за упаковку" />
+                    <input type="text" value={v.name ?? ''} onChange={(e) => updateProductVariant(i, 'name', e.target.value)} placeholder="Название" className="admin-input admin-input-sm" />
+                    <input type="number" min="1" value={v.packQty ?? 1} onChange={(e) => updateProductVariant(i, 'packQty', e.target.value)} className="admin-input admin-input-num" title="В упаковке (шт)" />
+                    <input type="number" min="0" value={v.priceRetail ?? v.price ?? 0} onChange={(e) => updateProductVariant(i, 'priceRetail', e.target.value)} className="admin-input admin-input-num" title="Розница (платформа)" />
+                    <input type="number" min="0" value={v.priceWholesale ?? v.price ?? 0} onChange={(e) => updateProductVariant(i, 'priceWholesale', e.target.value)} className="admin-input admin-input-num" title="Опт (оптовые закупки)" />
+                    <input type="number" min="0" value={v.priceSupplier ?? v.price ?? 0} onChange={(e) => updateProductVariant(i, 'priceSupplier', e.target.value)} className="admin-input admin-input-num" title="Поставщик (отдел закупок)" />
                     <button type="button" className="btn-remove-variant" onClick={() => removeProductVariant(i)} title="Удалить вариант">Удалить</button>
                   </div>
                 ))}
