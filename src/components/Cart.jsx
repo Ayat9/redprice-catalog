@@ -13,7 +13,7 @@ function escapeHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function buildInvoicePrintHtml({ items, total, supplierName }) {
+function buildInvoicePrintHtml({ items, total, supplierName, invoiceTitle, orderType }) {
   const dateStr = new Date().toLocaleDateString('ru-KZ', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const rows = items.map((item, i) => {
     const name = item.product.name
@@ -45,8 +45,8 @@ function buildInvoicePrintHtml({ items, total, supplierName }) {
   </style>
 </head>
 <body>
-  <h1>Накладная / Заказ</h1>
-  <div class="meta">Дата: ${dateStr}${supplierName ? `<br>Поставщик: ${escapeHtml(supplierName)}` : ''}</div>
+  <h1>${invoiceTitle ? escapeHtml(invoiceTitle) : 'Накладная / Заказ'}</h1>
+  <div class="meta">Дата: ${dateStr}${supplierName ? `<br>Поставщик: ${escapeHtml(supplierName)}` : ''}${orderType === 'wholesale' ? '<br>Оптовый заказ' : ''}</div>
   <table>
     <thead>
       <tr><th>№</th><th>Наименование</th><th>Вариант</th><th>Кол-во</th><th>Цена, ₸</th><th>Сумма, ₸</th></tr>
@@ -61,8 +61,8 @@ function buildInvoicePrintHtml({ items, total, supplierName }) {
 </html>`
 }
 
-function openInvoiceAsPdf({ items, total, supplierName }) {
-  const html = buildInvoicePrintHtml({ items, total, supplierName })
+function openInvoiceAsPdf({ items, total, supplierName, invoiceTitle, orderType }) {
+  const html = buildInvoicePrintHtml({ items, total, supplierName, invoiceTitle, orderType })
   const win = window.open('', '_blank')
   if (!win) {
     alert('Разрешите всплывающие окна для формирования PDF.')
@@ -103,8 +103,8 @@ function buildInvoicePrintHtmlFromOrder(order) {
   </style>
 </head>
 <body>
-  <h1>Накладная / Заказ</h1>
-  <div class="meta">Дата: ${dateStr}${order.supplierName ? `<br>Поставщик: ${escapeHtml(order.supplierName)}` : ''}</div>
+  <h1>${order.orderType === 'wholesale' ? 'Заявка оптового клиента' : 'Накладная / Заказ'}</h1>
+  <div class="meta">Дата: ${dateStr}${order.supplierName ? `<br>Поставщик: ${escapeHtml(order.supplierName)}` : ''}${order.orderType === 'wholesale' ? '<br>Оптовый заказ' : ''}</div>
   <table>
     <thead>
       <tr><th>№</th><th>Наименование</th><th>Вариант</th><th>Кол-во</th><th>Цена, ₸</th><th>Сумма, ₸</th></tr>
@@ -127,7 +127,7 @@ function openOrderInvoiceAsPdf(order) {
   win.document.close()
 }
 
-export default function Cart({ items, total, supplierId, supplierName, supplierPhone, blockMessage, isOpen, onClose, onClearCart, onSaveOrder, onUpdateQuantity, orders = [] }) {
+export default function Cart({ items, total, supplierId, supplierName, supplierPhone, blockMessage, isOpen, onClose, onClearCart, onSaveOrder, onUpdateQuantity, orders = [], isWholesale = false }) {
   const [cartTab, setCartTab] = React.useState('cart')
 
   const buildOrderFromCart = () => ({
@@ -153,25 +153,33 @@ export default function Cart({ items, total, supplierId, supplierName, supplierP
     if (items.length === 0) return
     try {
       const order = buildOrderFromCart()
-      if (onSaveOrder) onSaveOrder(order)
-      openInvoiceAsPdf({ items, total, supplierName })
-      const lines = [
-        '📋 *Накладная / Заказ*',
-        supplierName ? `Поставщик: ${supplierName}` : '',
-        '',
-        ...items.map((item, i) => {
-          const name = item.product.name
-          const variant = item.variant.name || `упак ${item.variant.packQty}шт`
-          const qty = item.packQty * item.variant.packQty
-          const sum = item.total.toLocaleString('ru-KZ')
-          return `${i + 1}. ${name} — ${variant}: ${qty} шт. = ${sum} ₸`
-        }),
-        '',
-        `*Итого: ${total.toLocaleString('ru-KZ')} ₸*`
-      ]
-      const text = lines.filter(Boolean).join('\n')
-      const url = buildWhatsAppUrl(supplierPhone, text)
-      if (url) window.open(url, '_blank')
+      if (onSaveOrder) onSaveOrder({ ...order, orderType: isWholesale ? 'wholesale' : 'procurement' })
+      openInvoiceAsPdf({
+        items,
+        total,
+        supplierName: isWholesale ? null : supplierName,
+        invoiceTitle: isWholesale ? 'Заявка оптового клиента' : null,
+        orderType: isWholesale ? 'wholesale' : null
+      })
+      if (!isWholesale) {
+        const lines = [
+          '📋 *Накладная / Заказ*',
+          supplierName ? `Поставщик: ${supplierName}` : '',
+          '',
+          ...items.map((item, i) => {
+            const name = item.product.name
+            const variant = item.variant.name || `упак ${item.variant.packQty}шт`
+            const qty = item.packQty * item.variant.packQty
+            const sum = item.total.toLocaleString('ru-KZ')
+            return `${i + 1}. ${name} — ${variant}: ${qty} шт. = ${sum} ₸`
+          }),
+          '',
+          `*Итого: ${total.toLocaleString('ru-KZ')} ₸*`
+        ]
+        const text = lines.filter(Boolean).join('\n')
+        const url = buildWhatsAppUrl(supplierPhone, text)
+        if (url) window.open(url, '_blank')
+      }
     } catch (e) {
       console.error(e)
       alert('Ошибка при формировании накладной.')
@@ -200,11 +208,15 @@ export default function Cart({ items, total, supplierId, supplierName, supplierP
 
         {cartTab === 'cart' && (
           <>
-            {supplierName && (
+            {isWholesale ? (
+              <div className="cart-supplier cart-supplier-wholesale">
+                Оптовый заказ — заявка для компании Redprice.kz
+              </div>
+            ) : supplierName ? (
               <div className="cart-supplier">
                 Заказ поставщику: <strong>{supplierName}</strong>
               </div>
-            )}
+            ) : null}
             {blockMessage && (
               <div className="cart-block-message">{blockMessage}</div>
             )}
@@ -228,8 +240,8 @@ export default function Cart({ items, total, supplierId, supplierName, supplierP
             <div className="cart-footer">
               {items.length > 0 && (
                 <>
-                  <button type="button" className="cart-invoice-btn" onClick={handleCreateInvoice} title={supplierPhone ? 'Сохранить в историю, открыть PDF и WhatsApp' : 'У поставщика не указан телефон'}>
-                    Сформировать накладную
+                  <button type="button" className="cart-invoice-btn" onClick={handleCreateInvoice} title={isWholesale ? 'Сохранить заявку и открыть накладную для печати' : supplierPhone ? 'Сохранить в историю, открыть PDF и WhatsApp' : 'У поставщика не указан телефон'}>
+                    {isWholesale ? 'Оформить заявку' : 'Сформировать накладную'}
                   </button>
                   <button type="button" className="cart-clear-btn" onClick={onClearCart}>
                     Очистить корзину
@@ -251,7 +263,7 @@ export default function Cart({ items, total, supplierId, supplierName, supplierP
                   <li key={order.id} className="cart-order-item">
                     <div className="cart-order-meta">
                       <span className="cart-order-date">{new Date(order.createdAt).toLocaleString('ru-KZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                      <span className="cart-order-supplier">{order.supplierName || '—'}</span>
+                      <span className="cart-order-supplier">{order.orderType === 'wholesale' ? 'Оптовый заказ' : (order.supplierName || '—')}</span>
                       <span className="cart-order-total">{Number(order.total || 0).toLocaleString('ru-KZ')} ₸</span>
                     </div>
                     <button type="button" className="cart-order-invoice-btn" onClick={() => openOrderInvoiceAsPdf(order)} title="Скачать накладную (печать в PDF)">

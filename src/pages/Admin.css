@@ -68,6 +68,12 @@
   border-color: rgba(255, 255, 255, 0.5);
 }
 
+.admin-user-info {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin-right: 12px;
+}
+
 /* Login screen */
 .admin-login {
   min-height: 100vh;
@@ -177,6 +183,22 @@
 
 .admin-reset-actions .btn-save {
   flex: 1;
+}
+
+.admin-reset-link-wrap {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.admin-reset-link {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.admin-reset-link:hover {
+  color: #1d4ed8;
 }
 
 .admin-login-back {

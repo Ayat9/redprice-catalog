@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useProducts } from '../context/ProductsContext'
 import { useCategories } from '../context/CategoriesContext'
@@ -6,19 +6,29 @@ import { useSuppliers } from '../context/SuppliersContext'
 import { useAdminAuth } from '../context/AdminAuthContext'
 import './Admin.css'
 
-const VIEWS = { products: 'products', suppliers: 'suppliers', categories: 'categories', newProduct: 'newProduct', newCategory: 'newCategory', newSupplier: 'newSupplier' }
+const VIEWS = { products: 'products', suppliers: 'suppliers', categories: 'categories', newProduct: 'newProduct', newCategory: 'newCategory', newSupplier: 'newSupplier', users: 'users', newUser: 'newUser' }
 
 export default function Admin() {
-  const { isLoggedIn, login, logout, resetPassword } = useAdminAuth()
+  const { isLoggedIn, login, logout, currentUser, canEdit, canManageUsers, requestPasswordReset, getUsers, addUser, updateUser, deleteUser, DEPARTMENTS, ROLES } = useAdminAuth()
   const { products, setProducts } = useProducts()
   const { categories, setCategories } = useCategories()
   const { suppliers, setSuppliers } = useSuppliers()
   const [view, setView] = useState(VIEWS.products)
+  const [loginEmail, setLoginEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [showReset, setShowReset] = useState(false)
-  const [resetKey, setResetKey] = useState('')
+  const [resetEmail, setResetEmail] = useState('')
   const [resetResult, setResetResult] = useState(null)
+  const [editingUser, setEditingUser] = useState(null)
+  const [userForm, setUserForm] = useState(null)
+  const [newUserForm, setNewUserForm] = useState({ email: '', name: '', password: '', departmentId: 'procurement', roleId: 'reader' })
+  const [userFilter, setUserFilter] = useState({ search: '' })
+  const [userSort, setUserSort] = useState({ field: 'name', dir: 'asc' })
+
+  useEffect(() => {
+    if (!canEdit && (view === VIEWS.newProduct || view === VIEWS.newSupplier || view === VIEWS.newCategory)) setView(VIEWS.products)
+  }, [canEdit, view])
   const [editingProduct, setEditingProduct] = useState(null)
   const [editingCategory, setEditingCategory] = useState(null)
   const [editingSupplier, setEditingSupplier] = useState(null)
@@ -295,6 +305,54 @@ export default function Admin() {
     return list
   }, [suppliers, supplierFilter, supplierSort])
 
+  const users = getUsers()
+  const filteredUsers = React.useMemo(() => {
+    let list = [...users]
+    if (userFilter.search) {
+      const q = userFilter.search.toLowerCase()
+      list = list.filter((u) => (u.email || '').toLowerCase().includes(q) || (u.name || '').toLowerCase().includes(q) || DEPARTMENTS.find((d) => d.id === u.departmentId)?.name?.toLowerCase().includes(q) || ROLES.find((r) => r.id === u.roleId)?.name?.toLowerCase().includes(q))
+    }
+    list.sort((a, b) => {
+      const va = (a[userSort.field] || '').toString().toLowerCase()
+      const vb = (b[userSort.field] || '').toString().toLowerCase()
+      const cmp = va.localeCompare(vb, 'ru')
+      return userSort.dir === 'asc' ? cmp : -cmp
+    })
+    return list
+  }, [users, userFilter, userSort, DEPARTMENTS, ROLES])
+
+  const openEditUser = (user) => {
+    setEditingUser(user)
+    setUserForm({ ...user, password: '' })
+  }
+  const closeEditUser = () => {
+    setEditingUser(null)
+    setUserForm(null)
+  }
+  const saveUser = () => {
+    if (!userForm) return
+    updateUser(userForm.id, userForm)
+    closeEditUser()
+  }
+  const handleDeleteUser = (user) => {
+    if (!window.confirm(`Удалить учётную запись ${user.email}?`)) return
+    const res = deleteUser(user.id)
+    if (!res.success) alert(res.message)
+  }
+  const initNewUser = () => {
+    setNewUserForm({ email: '', name: '', password: '', departmentId: 'procurement', roleId: 'reader' })
+    setView(VIEWS.newUser)
+  }
+  const createUser = () => {
+    const res = addUser(newUserForm)
+    if (!res.success) {
+      alert(res.message)
+      return
+    }
+    setView(VIEWS.users)
+    setNewUserForm({ email: '', name: '', password: '', departmentId: 'procurement', roleId: 'reader' })
+  }
+
   const handleImageFile = (file, setImageUrl) => {
     if (!file || !file.type.startsWith('image/')) return
     const reader = new FileReader()
@@ -305,21 +363,18 @@ export default function Admin() {
   const handleLogin = (e) => {
     e.preventDefault()
     setLoginError('')
-    if (login(password)) setPassword('')
-    else setLoginError('Неверный пароль')
+    if (login(loginEmail, password)) {
+      setLoginEmail('')
+      setPassword('')
+    } else setLoginError('Неверный email или пароль')
   }
 
   const handleReset = (e) => {
     e.preventDefault()
     setResetResult(null)
-    const result = resetPassword(resetKey.trim())
-    if (result.success) {
-      setResetResult({ success: true, defaultPassword: result.defaultPassword })
-      setResetKey('')
-      setShowReset(false)
-    } else {
-      setResetResult({ success: false })
-    }
+    const result = requestPasswordReset(resetEmail.trim())
+    setResetResult(result)
+    if (result.success) setResetEmail('')
   }
 
   if (!isLoggedIn) {
@@ -328,45 +383,58 @@ export default function Admin() {
         <div className="admin-login">
           <div className="admin-login-card">
             <h1>Вход в админ-панель</h1>
-            <p>Введите пароль</p>
-            <form onSubmit={handleLogin}>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Пароль"
-                className="admin-input admin-login-input"
-                autoFocus={!showReset}
-              />
-              {loginError && <p className="admin-login-error">{loginError}</p>}
-              {resetResult?.success && (
-                <p className="admin-login-success">Пароль сброшен. Используйте пароль: <strong>{resetResult.defaultPassword}</strong></p>
-              )}
-              <button type="submit" className="btn-save admin-login-btn">Войти</button>
-            </form>
+            <p>Введите email и пароль</p>
             {!showReset ? (
-              <button type="button" className="admin-forgot-link" onClick={() => setShowReset(true)}>Забыли пароль?</button>
+              <form onSubmit={handleLogin}>
+                <input
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="Email"
+                  className="admin-input admin-login-input"
+                  autoFocus
+                  required
+                />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Пароль"
+                  className="admin-input admin-login-input"
+                />
+                {loginError && <p className="admin-login-error">{loginError}</p>}
+                <button type="submit" className="btn-save admin-login-btn">Войти</button>
+              </form>
             ) : (
               <div className="admin-reset-block">
                 <p className="admin-reset-title">Сброс пароля</p>
-                <p className="admin-reset-hint">Введите ключ сброса (выдаётся администратором)</p>
+                <p className="admin-reset-hint">Введите email учётной записи. На него будет отправлена ссылка для сброса пароля (сброс возможен только через почту).</p>
                 <form onSubmit={handleReset}>
                   <input
-                    type="text"
-                    value={resetKey}
-                    onChange={(e) => setResetKey(e.target.value)}
-                    placeholder="Ключ сброса"
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="Email"
                     className="admin-input admin-login-input"
                     autoFocus
+                    required
                   />
-                  {resetResult?.success === false && <p className="admin-login-error">Неверный ключ сброса</p>}
+                  {resetResult?.success === false && <p className="admin-login-error">{resetResult.message}</p>}
+                  {resetResult?.success && (
+                    <p className="admin-login-success">{resetResult.message}
+                      {resetResult.resetLink && (
+                        <span className="admin-reset-link-wrap"> Ссылка для перехода: <a href={resetResult.resetLink} className="admin-reset-link">{resetResult.resetLink}</a></span>
+                      )}
+                    </p>
+                  )}
                   <div className="admin-reset-actions">
-                    <button type="button" className="btn-cancel" onClick={() => { setShowReset(false); setResetKey(''); setResetResult(null) }}>Отмена</button>
-                    <button type="submit" className="btn-save">Сбросить пароль</button>
+                    <button type="button" className="btn-cancel" onClick={() => { setShowReset(false); setResetEmail(''); setResetResult(null) }}>Отмена</button>
+                    <button type="submit" className="btn-save">Отправить ссылку на email</button>
                   </div>
                 </form>
               </div>
             )}
+            {!showReset && <button type="button" className="admin-forgot-link" onClick={() => setShowReset(true)}>Забыли пароль?</button>}
             <Link to="/" className="admin-back admin-login-back">← На главную</Link>
           </div>
         </div>
@@ -379,6 +447,7 @@ export default function Admin() {
       <header className="admin-header">
         <div className="admin-header-top">
           <Link to="/" className="admin-back">← Каталог</Link>
+          <span className="admin-user-info">{currentUser?.name || currentUser?.email} ({ROLES.find((r) => r.id === currentUser?.roleId)?.name || currentUser?.roleId})</span>
           <button type="button" className="admin-logout" onClick={logout}>Выйти</button>
         </div>
         <h1>Админ-панель</h1>
@@ -390,18 +459,25 @@ export default function Admin() {
           <div className="admin-nav-group">
             <div className="admin-nav-group-title">Товары</div>
             <button type="button" className={`admin-nav-item ${view === VIEWS.products ? 'active' : ''}`} onClick={() => setView(VIEWS.products)}>Список товаров</button>
-            <button type="button" className={`admin-nav-item admin-nav-item-sub ${view === VIEWS.newProduct ? 'active' : ''}`} onClick={initNewProduct}>+ Новый товар</button>
+            {canEdit && <button type="button" className={`admin-nav-item admin-nav-item-sub ${view === VIEWS.newProduct ? 'active' : ''}`} onClick={initNewProduct}>+ Новый товар</button>}
           </div>
           <div className="admin-nav-group">
             <div className="admin-nav-group-title">Поставщики</div>
             <button type="button" className={`admin-nav-item ${view === VIEWS.suppliers ? 'active' : ''}`} onClick={() => setView(VIEWS.suppliers)}>Список поставщиков</button>
-            <button type="button" className={`admin-nav-item admin-nav-item-sub ${view === VIEWS.newSupplier ? 'active' : ''}`} onClick={initNewSupplier}>+ Новый поставщик</button>
+            {canEdit && <button type="button" className={`admin-nav-item admin-nav-item-sub ${view === VIEWS.newSupplier ? 'active' : ''}`} onClick={initNewSupplier}>+ Новый поставщик</button>}
           </div>
           <div className="admin-nav-group">
             <div className="admin-nav-group-title">Категории</div>
             <button type="button" className={`admin-nav-item ${view === VIEWS.categories ? 'active' : ''}`} onClick={() => setView(VIEWS.categories)}>Список категорий</button>
-            <button type="button" className={`admin-nav-item admin-nav-item-sub ${view === VIEWS.newCategory ? 'active' : ''}`} onClick={initNewCategory}>+ Новая категория</button>
+            {canEdit && <button type="button" className={`admin-nav-item admin-nav-item-sub ${view === VIEWS.newCategory ? 'active' : ''}`} onClick={initNewCategory}>+ Новая категория</button>}
           </div>
+          {canManageUsers && (
+            <div className="admin-nav-group">
+              <div className="admin-nav-group-title">Учётные записи</div>
+              <button type="button" className={`admin-nav-item ${view === VIEWS.users ? 'active' : ''}`} onClick={() => setView(VIEWS.users)}>Список сотрудников</button>
+              <button type="button" className={`admin-nav-item admin-nav-item-sub ${view === VIEWS.newUser ? 'active' : ''}`} onClick={initNewUser}>+ Новый сотрудник</button>
+            </div>
+          )}
         </nav>
 
         <div className="admin-content">
@@ -455,8 +531,12 @@ export default function Admin() {
                         <td>{categories.find((c) => c.id === p.categoryId)?.name ?? p.categoryId}</td>
                         <td>{p.variants?.length ?? 0}</td>
                         <td>
-                          <button type="button" className="btn-edit" onClick={() => openEditProduct(p)}>Редактировать</button>
-                          <button type="button" className="btn-delete" onClick={() => deleteProduct(p)}>Удалить</button>
+                          {canEdit && (
+                            <>
+                              <button type="button" className="btn-edit" onClick={() => openEditProduct(p)}>Редактировать</button>
+                              <button type="button" className="btn-delete" onClick={() => deleteProduct(p)}>Удалить</button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -500,8 +580,12 @@ export default function Admin() {
                         <td>{s.phone || '—'}</td>
                         <td>{s.address || '—'}</td>
                         <td>
-                          <button type="button" className="btn-edit" onClick={() => openEditSupplier(s)}>Изменить</button>
-                          <button type="button" className="btn-delete" onClick={() => deleteSupplier(s)}>Удалить</button>
+                          {canEdit && (
+                            <>
+                              <button type="button" className="btn-edit" onClick={() => openEditSupplier(s)}>Изменить</button>
+                              <button type="button" className="btn-delete" onClick={() => deleteSupplier(s)}>Удалить</button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -541,8 +625,12 @@ export default function Admin() {
                         <td><code className="admin-code">{c.id}</code></td>
                         <td>{c.name}</td>
                         <td>
-                          <button type="button" className="btn-edit" onClick={() => openEditCategory(c)}>Изменить</button>
-                          <button type="button" className="btn-delete" onClick={() => deleteCategory(c)}>Удалить</button>
+                          {canEdit && (
+                            <>
+                              <button type="button" className="btn-edit" onClick={() => openEditCategory(c)}>Изменить</button>
+                              <button type="button" className="btn-delete" onClick={() => deleteCategory(c)}>Удалить</button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -654,6 +742,80 @@ export default function Admin() {
                 <div className="admin-form-actions">
                   <button type="button" className="btn-cancel" onClick={() => setView(VIEWS.suppliers)}>Отмена</button>
                   <button type="button" className="btn-save" onClick={createSupplier}>Создать поставщика</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {canManageUsers && view === VIEWS.users && (
+            <div className="admin-section">
+              <h2 className="admin-section-title">Учётные записи сотрудников</h2>
+              <div className="admin-filters">
+                <input type="text" placeholder="Поиск по email, имени, отделу, роли" value={userFilter.search} onChange={(e) => setUserFilter((f) => ({ ...f, search: e.target.value }))} className="admin-input admin-filter-input" />
+                <div className="admin-sort">
+                  <span className="admin-sort-label">Сортировка:</span>
+                  <select value={`${userSort.field}-${userSort.dir}`} onChange={(e) => { const v = e.target.value; const [field, dir] = v.split('-'); setUserSort({ field, dir }); }} className="admin-input admin-filter-select">
+                    <option value="name-asc">Имя А–Я</option>
+                    <option value="name-desc">Имя Я–А</option>
+                    <option value="email-asc">Email А–Я</option>
+                    <option value="email-desc">Email Я–А</option>
+                    <option value="departmentId-asc">Отдел А–Я</option>
+                    <option value="departmentId-desc">Отдел Я–А</option>
+                    <option value="roleId-asc">Роль А–Я</option>
+                    <option value="roleId-desc">Роль Я–А</option>
+                  </select>
+                </div>
+              </div>
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Имя</th>
+                      <th>Отдел</th>
+                      <th>Роль</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map((u) => (
+                      <tr key={u.id}>
+                        <td>{u.email}</td>
+                        <td>{u.name || '—'}</td>
+                        <td>{DEPARTMENTS.find((d) => d.id === u.departmentId)?.name || u.departmentId || '—'}</td>
+                        <td>{ROLES.find((r) => r.id === u.roleId)?.name || u.roleId || '—'}</td>
+                        <td>
+                          <button type="button" className="btn-edit" onClick={() => openEditUser(u)}>Изменить</button>
+                          <button type="button" className="btn-delete" onClick={() => handleDeleteUser(u)} disabled={currentUser?.id === u.id} title={currentUser?.id === u.id ? 'Нельзя удалить себя' : 'Удалить'}>Удалить</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {canManageUsers && view === VIEWS.newUser && (
+            <div className="admin-section admin-form-section">
+              <h2 className="admin-section-title">Новый сотрудник</h2>
+              <div className="admin-form-card">
+                <label>Email <input type="email" value={newUserForm.email} onChange={(e) => setNewUserForm((f) => ({ ...f, email: e.target.value }))} placeholder="user@example.com" className="admin-input" required /></label>
+                <label>Имя <input type="text" value={newUserForm.name} onChange={(e) => setNewUserForm((f) => ({ ...f, name: e.target.value }))} placeholder="Иван Иванов" className="admin-input" /></label>
+                <label>Пароль (при первом входе можно сменить через «Забыли пароль?») <input type="password" value={newUserForm.password} onChange={(e) => setNewUserForm((f) => ({ ...f, password: e.target.value }))} placeholder="Минимум 6 символов" className="admin-input" /></label>
+                <label>Отдел
+                  <select value={newUserForm.departmentId} onChange={(e) => setNewUserForm((f) => ({ ...f, departmentId: e.target.value }))} className="admin-input">
+                    {DEPARTMENTS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
+                </label>
+                <label>Роль
+                  <select value={newUserForm.roleId} onChange={(e) => setNewUserForm((f) => ({ ...f, roleId: e.target.value }))} className="admin-input">
+                    {ROLES.map((r) => <option key={r.id} value={r.id}>{r.name} — {r.description}</option>)}
+                  </select>
+                </label>
+                <div className="admin-form-actions">
+                  <button type="button" className="btn-cancel" onClick={() => setView(VIEWS.users)}>Отмена</button>
+                  <button type="button" className="btn-save" onClick={createUser}>Создать сотрудника</button>
                 </div>
               </div>
             </div>
@@ -781,6 +943,37 @@ export default function Admin() {
             <div className="admin-modal-footer">
               <button type="button" className="btn-cancel" onClick={closeEditSupplier}>Отмена</button>
               <button type="button" className="btn-save" onClick={saveSupplier}>Сохранить</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка редактирования пользователя */}
+      {userForm && canManageUsers && (
+        <div className="admin-modal-overlay" onClick={closeEditUser}>
+          <div className="admin-modal admin-modal-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h2>Редактировать сотрудника</h2>
+              <button type="button" className="admin-modal-close" onClick={closeEditUser}>×</button>
+            </div>
+            <div className="admin-modal-body">
+              <label>Email <input type="email" value={userForm.email} onChange={(e) => setUserForm((f) => f ? { ...f, email: e.target.value } : f)} className="admin-input" /></label>
+              <label>Имя <input type="text" value={userForm.name} onChange={(e) => setUserForm((f) => f ? { ...f, name: e.target.value } : f)} className="admin-input" /></label>
+              <label>Новый пароль (оставьте пустым, чтобы не менять) <input type="password" value={userForm.password} onChange={(e) => setUserForm((f) => f ? { ...f, password: e.target.value } : f)} className="admin-input" placeholder="Оставьте пустым" /></label>
+              <label>Отдел
+                <select value={userForm.departmentId} onChange={(e) => setUserForm((f) => f ? { ...f, departmentId: e.target.value } : f)} className="admin-input">
+                  {DEPARTMENTS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </label>
+              <label>Роль
+                <select value={userForm.roleId} onChange={(e) => setUserForm((f) => f ? { ...f, roleId: e.target.value } : f)} className="admin-input">
+                  {ROLES.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" className="btn-cancel" onClick={closeEditUser}>Отмена</button>
+              <button type="button" className="btn-save" onClick={saveUser}>Сохранить</button>
             </div>
           </div>
         </div>

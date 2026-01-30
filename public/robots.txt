@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Allow: /zakup
+Disallow: /admin
+Disallow: /admin/
+
+Sitemap: https://red-price.kz/sitemap.xml

@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
-export default function Header({ cartCount, cartTotal, onOpenCart }) {
+export default function Header({ showCart = false, cartCount = 0, cartTotal = 0, onOpenCart }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
+  const location = useLocation()
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -12,6 +13,8 @@ export default function Header({ cartCount, cartTotal, onOpenCart }) {
     if (menuOpen) document.addEventListener('click', handleClickOutside)
     return () => document.removeEventListener('click', handleClickOutside)
   }, [menuOpen])
+
+  const pathname = location.pathname || ''
 
   return (
     <header className="header">
@@ -32,15 +35,18 @@ export default function Header({ cartCount, cartTotal, onOpenCart }) {
             </button>
             {menuOpen && (
               <div className="header-menu-box">
-                <Link to="/" className="header-menu-link" onClick={() => setMenuOpen(false)}>Каталог</Link>
-                <Link to="/admin" className="header-menu-link" onClick={() => setMenuOpen(false)}>Админ</Link>
+                <Link to="/" className={`header-menu-link ${pathname === '/' ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>Каталог</Link>
+                <Link to="/zakup" className={`header-menu-link ${pathname === '/zakup' ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>Отдел закупок</Link>
+                <Link to="/admin" className={`header-menu-link ${pathname === '/admin' ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>Админ</Link>
               </div>
             )}
           </div>
-          <button type="button" className="cart-btn" onClick={onOpenCart}>
-          <span className="cart-btn-text">Выбрано {cartCount} тов ({cartTotal.toLocaleString('ru-KZ')}₸)</span>
-          <span className="cart-btn-action">Открыть корзину</span>
-          </button>
+          {showCart && (
+            <button type="button" className="cart-btn" onClick={onOpenCart}>
+              <span className="cart-btn-text">Выбрано {cartCount} тов ({cartTotal.toLocaleString('ru-KZ')}₸)</span>
+              <span className="cart-btn-action">Открыть корзину</span>
+            </button>
+          )}
         </div>
       </div>
     </header>
