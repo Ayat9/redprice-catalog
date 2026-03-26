@@ -10,6 +10,9 @@ const PROJECT_ROOT = path.resolve(__dirname, '..')
 
 const DEFAULT_VALUE = { name: '', price: '' }
 const DATA_FILE = path.join(PROJECT_ROOT, '.data', 'electronic_price.json')
+const SUPABASE_URL = process.env.SUPABASE_URL || ''
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const SUPABASE_TABLE = process.env.SUPABASE_PRICE_TABLE || 'electronic_price'
 
 // Для статического хостинга: физический файл, который ESP32 должна читать.
 const PUBLIC_API_DATA_FILE = path.join(PROJECT_ROOT, 'public', 'api', 'data.json')
@@ -67,19 +70,101 @@ function writeMirroredFiles(payload) {
   return next
 }
 
+function isSupabaseEnabled() {
+  return Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY)
+}
+
+async function readFromSupabase() {
+  const base = SUPABASE_URL.replace(/\/$/, '')
+  const url = `${base}/rest/v1/${encodeURIComponent(SUPABASE_TABLE)}?id=eq.1&select=name,price&limit=1`
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      Accept: 'application/json',
+    },
+  })
+
+  if (!res.ok) {
+    throw new Error(`Supabase read failed (${res.status})`)
+  }
+
+  const rows = await res.json()
+  const row = Array.isArray(rows) ? rows[0] : null
+  if (!row) return { ...DEFAULT_VALUE }
+  return {
+    name: typeof row.name === 'string' ? row.name : '',
+    price: typeof row.price === 'string' ? row.price : String(row.price ?? ''),
+  }
+}
+
+async function writeToSupabase(payload) {
+  const next = {
+    name: String(payload?.name ?? '').trim(),
+    price: String(payload?.price ?? '').trim(),
+  }
+
+  if (!next.name) throw new Error('Введите название товара')
+  if (!next.price) throw new Error('Введите цену')
+
+  const base = SUPABASE_URL.replace(/\/$/, '')
+  const url = `${base}/rest/v1/${encodeURIComponent(SUPABASE_TABLE)}?on_conflict=id`
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=representation',
+    },
+    body: JSON.stringify([{ id: 1, name: next.name, price: next.price }]),
+  })
+
+  if (!res.ok) {
+    throw new Error(`Supabase write failed (${res.status})`)
+  }
+
+  const rows = await res.json()
+  const row = Array.isArray(rows) ? rows[0] : next
+  return {
+    name: typeof row.name === 'string' ? row.name : next.name,
+    price: typeof row.price === 'string' ? row.price : next.price,
+  }
+}
+
+async function readPriceValue() {
+  if (isSupabaseEnabled()) {
+    return await readFromSupabase()
+  }
+  return await readJsonFile(DATA_FILE)
+}
+
+async function writePriceValue(payload) {
+  if (isSupabaseEnabled()) {
+    const updated = await writeToSupabase(payload)
+    // Optional mirror for static URLs/caching consistency
+    writeMirroredFiles(updated)
+    return updated
+  }
+  return writeMirroredFiles(payload)
+}
+
 const app = express()
 app.use(express.json({ type: ['application/json', '*/json'] }))
 
 // 1) Строго JSON
 app.get(['/api/price', '/api/price/'], async (req, res) => {
-  const data = await readJsonFile(DATA_FILE)
+  const data = await readPriceValue()
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.status(200).send(JSON.stringify(data))
 })
 
 app.get(['/api/price.json', '/api/price.json/', '/price.json', '/price.json/'], async (req, res) => {
-  const data = await readJsonFile(DATA_FILE)
+  const data = await readPriceValue()
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.status(200).send(JSON.stringify(data))
@@ -87,7 +172,7 @@ app.get(['/api/price.json', '/api/price.json/', '/price.json', '/price.json/'], 
 
 // Новый основной эндпоинт под ESP32: /api/data.json
 app.get(['/api/data.json', '/api/data.json/', '/data.json', '/data.json/'], async (req, res) => {
-  const data = await readJsonFile(DATA_FILE)
+  const data = await readPriceValue()
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.status(200).send(JSON.stringify(data))
@@ -96,7 +181,7 @@ app.get(['/api/data.json', '/api/data.json/', '/data.json', '/data.json/'], asyn
 // 2) Обновление
 app.post(['/api/update-price', '/api/update-price/'], async (req, res) => {
   try {
-    const updated = await writeMirroredFiles(req.body)
+    const updated = await writePriceValue(req.body)
     res.setHeader('Content-Type', 'application/json; charset=utf-8')
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.status(200).send(JSON.stringify(updated)) // {"name":"...","price":"..."}
@@ -112,7 +197,7 @@ app.post(
   ['/api/price', '/api/price/', '/api/price.json', '/api/price.json/'],
   async (req, res) => {
     try {
-      const updated = await writeMirroredFiles(req.body)
+      const updated = await writePriceValue(req.body)
       res.setHeader('Content-Type', 'application/json; charset=utf-8')
       res.setHeader('Access-Control-Allow-Origin', '*')
       res.status(200).send(JSON.stringify(updated))
