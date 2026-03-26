@@ -11,6 +11,8 @@ import CatalogWholesale from './pages/CatalogWholesale'
 import CatalogProcurement from './pages/CatalogProcurement'
 import Admin from './pages/Admin'
 import AdminSetPassword from './pages/AdminSetPassword'
+import AdminCennik from './pages/AdminCennik'
+import './tailwind.css'
 import './App.css'
 
 function App() {
@@ -28,6 +30,7 @@ function App() {
           <Route path="/zakup" element={<CatalogProcurement />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/set-password" element={<AdminSetPassword />} />
+          <Route path="/admin/cennik" element={<AdminCennik />} />
         </Routes>
       </BrowserRouter>
     </ProductsProvider>

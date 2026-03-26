@@ -46,33 +46,37 @@ function VariantRow({ product, variant, priceMode, onAddToCart, onDecreaseFromCa
 
   return (
     <div className="variant-row">
-      <span className="variant-label variant-label-name">Название: <strong>{nameLabel}</strong></span>
-      <span className="variant-label variant-label-meta">Цена: <strong>{unitPrice.toLocaleString('ru-KZ')} ₸</strong> за упак · В упаковке: <strong>{variant.packQty} шт</strong></span>
-      {showCartActions && (
-        <>
-          <div className="variant-actions">
-            <button
-              type="button"
-              className="btn-qty btn-qty-minus"
-              onClick={() => onDecreaseFromCart && onDecreaseFromCart(product, variant)}
-              disabled={cartQty === 0}
-              title="Убрать из корзины"
-            >
-              −
-            </button>
-            <span className="variant-qty">В корзине: {cartQty} упак</span>
-            <button
-              type="button"
-              className="btn-qty btn-qty-plus"
-              onClick={() => onAddToCart(product, variant, 1, priceMode)}
-              title="Добавить в корзину"
-            >
-              +
-            </button>
-          </div>
-          {cartQty > 0 && <span className="variant-total">Сумма: {total.toLocaleString('ru-KZ')} ₸</span>}
-        </>
-      )}
+      <div className="variant-row-name">
+        <span className="variant-label variant-label-name" title={nameLabel}>Название: <strong>{nameLabel}</strong></span>
+      </div>
+      <div className="variant-row-bottom">
+        <span className="variant-label variant-label-meta">В упаковке: <strong>{variant.packQty} шт</strong> · Цена: <strong>{unitPrice.toLocaleString('ru-KZ')} ₸</strong> за упак</span>
+        {showCartActions && (
+          <>
+            <div className="variant-actions">
+              <button
+                type="button"
+                className="btn-qty btn-qty-minus"
+                onClick={() => onDecreaseFromCart && onDecreaseFromCart(product, variant)}
+                disabled={cartQty === 0}
+                title="Убрать из корзины"
+              >
+                −
+              </button>
+              <span className="variant-qty">В корзине: {cartQty} упак</span>
+              <button
+                type="button"
+                className="btn-qty btn-qty-plus"
+                onClick={() => onAddToCart(product, variant, 1, priceMode)}
+                title="Добавить в корзину"
+              >
+                +
+              </button>
+            </div>
+            {cartQty > 0 && <span className="variant-total">Сумма: {total.toLocaleString('ru-KZ')} ₸</span>}
+          </>
+        )}
+      </div>
     </div>
   )
 }
