@@ -1,5 +1,6 @@
 import express from 'express'
 import fs from 'node:fs/promises'
+import fsSync from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -36,7 +37,7 @@ async function readJsonFile(filePath) {
   }
 }
 
-async function writeMirroredFiles(payload) {
+function writeMirroredFiles(payload) {
   const next = {
     name: String(payload?.name ?? '').trim(),
     price: String(payload?.price ?? '').trim(),
@@ -47,23 +48,21 @@ async function writeMirroredFiles(payload) {
 
   const json = JSON.stringify(next)
 
-  // Основное хранилище для сервера
-  await ensureDir(DATA_FILE)
-  await fs.writeFile(DATA_FILE, json, 'utf8')
+  // Важно: синхронная запись в api/update-price по запросу пользователя.
+  const targets = [
+    DATA_FILE,
+    PUBLIC_API_DATA_FILE,
+    PUBLIC_ROOT_JSON,
+    PUBLIC_API_PRICE_FILE,
+    PUBLIC_LEGACY_ROOT_PRICE_FILE,
+  ]
 
-  // Дублируем “физический файл” для случаев, когда читают .json URL
-  await ensureDir(PUBLIC_API_DATA_FILE)
-  await fs.writeFile(PUBLIC_API_DATA_FILE, json, 'utf8')
-
-  await ensureDir(PUBLIC_ROOT_JSON)
-  await fs.writeFile(PUBLIC_ROOT_JSON, json, 'utf8')
-
-  // Доп. зеркало для обратной совместимости
-  await ensureDir(PUBLIC_API_PRICE_FILE)
-  await fs.writeFile(PUBLIC_API_PRICE_FILE, json, 'utf8')
-
-  await ensureDir(PUBLIC_LEGACY_ROOT_PRICE_FILE)
-  await fs.writeFile(PUBLIC_LEGACY_ROOT_PRICE_FILE, json, 'utf8')
+  for (const target of targets) {
+    const dir = path.dirname(target)
+    fsSync.mkdirSync(dir, { recursive: true })
+    fsSync.accessSync(dir, fsSync.constants.W_OK)
+    fsSync.writeFileSync(target, json, 'utf8')
+  }
 
   return next
 }

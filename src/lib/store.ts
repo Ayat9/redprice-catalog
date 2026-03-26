@@ -58,9 +58,9 @@ export async function updatePrice({ name, price }) {
 
   const next = normalizeInput({ name, price })
 
-  // 1) Пишем напрямую в /api/price(.json) endpoint
+  // 1) Пишем через /api/update-price (основной endpoint админки)
   try {
-    const res = await fetch('/api/price', {
+    const res = await fetch('/api/update-price', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(next),
@@ -80,9 +80,9 @@ export async function updatePrice({ name, price }) {
     // fallback ниже
   }
 
-  // 1.1) Совместимость со старым endpoint
+  // 1.1) Совместимость: прямой POST в /api/price(.json)
   try {
-    const res = await fetch('/api/update-price', {
+    const res = await fetch('/api/price', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(next),
