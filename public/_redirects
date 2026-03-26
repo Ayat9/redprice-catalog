@@ -1,4 +1,6 @@
 # Never rewrite API/JSON to SPA
+/api/price  /api/price.json  200
+/api/data   /api/data.json   200
 /api/*   /api/:splat   200
 /*.json  /:splat.json  200
 

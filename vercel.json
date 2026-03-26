@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/api/price",
+      "destination": "/api/price.json"
+    },
+    {
+      "source": "/api/data",
+      "destination": "/api/data.json"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/:path*"
     },
@@ -26,6 +34,14 @@
           "value": "*"
         },
         {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type"
+        },
+        {
           "key": "Cache-Control",
           "value": "no-cache, max-age=0"
         }
@@ -41,6 +57,14 @@
         {
           "key": "Access-Control-Allow-Origin",
           "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type"
         },
         {
           "key": "Cache-Control",

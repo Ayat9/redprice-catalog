@@ -2,6 +2,8 @@
   <FilesMatch "\.json$">
     Header set Content-Type "application/json; charset=utf-8"
     Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type"
     Header set Cache-Control "no-cache, max-age=0"
   </FilesMatch>
 </IfModule>
@@ -23,6 +25,10 @@
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
+
+  # Convenience aliases for ESP32 firmware
+  RewriteRule ^api/price/?$ /api/price.json [L,NC]
+  RewriteRule ^api/data/?$ /api/data.json [L,NC]
 
   # Do not route API and .json files to SPA index
   RewriteCond %{REQUEST_URI} ^/api/ [OR]

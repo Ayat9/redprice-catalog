@@ -1,23 +1,25 @@
 <IfModule mod_headers.c>
-  <FilesMatch "^data\.json$">
+  <FilesMatch "^(data|price)\.json$">
     Header set Content-Type "application/json; charset=utf-8"
     Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type"
     Header set Cache-Control "no-cache, max-age=0"
   </FilesMatch>
 </IfModule>
 
 <IfModule mod_authz_core.c>
   # Public endpoint for ESP32
-  <Files "data.json">
+  <FilesMatch "^(data|price)\.json$">
     Require all granted
-  </Files>
+  </FilesMatch>
 </IfModule>
 
 <IfModule mod_auth_basic.c>
-  # Disable inherited Basic Auth for this file.
-  <Files "data.json">
+  # Disable inherited Basic Auth for public JSON files.
+  <FilesMatch "^(data|price)\.json$">
     AuthType None
     Require all granted
-  </Files>
+  </FilesMatch>
 </IfModule>
 
