@@ -10,9 +10,13 @@ const PROJECT_ROOT = path.resolve(__dirname, '..')
 const DEFAULT_VALUE = { name: '', price: '' }
 const DATA_FILE = path.join(PROJECT_ROOT, '.data', 'electronic_price.json')
 
-// Для варианта “физический файл” на статике
-const PUBLIC_API_FILE = path.join(PROJECT_ROOT, 'public', 'api', 'price.json')
-const PUBLIC_ROOT_JSON = path.join(PROJECT_ROOT, 'public', 'price.json')
+// Для статического хостинга: физический файл, который ESP32 должна читать.
+const PUBLIC_API_DATA_FILE = path.join(PROJECT_ROOT, 'public', 'api', 'data.json')
+const PUBLIC_ROOT_JSON = path.join(PROJECT_ROOT, 'public', 'data.json')
+
+// Бэкап/совместимость со старым вариантом
+const PUBLIC_API_PRICE_FILE = path.join(PROJECT_ROOT, 'public', 'api', 'price.json')
+const PUBLIC_LEGACY_ROOT_PRICE_FILE = path.join(PROJECT_ROOT, 'public', 'price.json')
 
 async function ensureDir(filePath) {
   await fs.mkdir(path.dirname(filePath), { recursive: true })
@@ -48,11 +52,18 @@ async function writeMirroredFiles(payload) {
   await fs.writeFile(DATA_FILE, json, 'utf8')
 
   // Дублируем “физический файл” для случаев, когда читают .json URL
-  await ensureDir(PUBLIC_API_FILE)
-  await fs.writeFile(PUBLIC_API_FILE, json, 'utf8')
+  await ensureDir(PUBLIC_API_DATA_FILE)
+  await fs.writeFile(PUBLIC_API_DATA_FILE, json, 'utf8')
 
   await ensureDir(PUBLIC_ROOT_JSON)
   await fs.writeFile(PUBLIC_ROOT_JSON, json, 'utf8')
+
+  // Доп. зеркало для обратной совместимости
+  await ensureDir(PUBLIC_API_PRICE_FILE)
+  await fs.writeFile(PUBLIC_API_PRICE_FILE, json, 'utf8')
+
+  await ensureDir(PUBLIC_LEGACY_ROOT_PRICE_FILE)
+  await fs.writeFile(PUBLIC_LEGACY_ROOT_PRICE_FILE, json, 'utf8')
 
   return next
 }
@@ -64,12 +75,22 @@ app.use(express.json({ type: ['application/json', '*/json'] }))
 app.get(['/api/price', '/api/price/'], async (req, res) => {
   const data = await readJsonFile(DATA_FILE)
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.setHeader('Access-Control-Allow-Origin', '*')
   res.status(200).send(JSON.stringify(data))
 })
 
 app.get(['/api/price.json', '/api/price.json/', '/price.json', '/price.json/'], async (req, res) => {
   const data = await readJsonFile(DATA_FILE)
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.status(200).send(JSON.stringify(data))
+})
+
+// Новый основной эндпоинт под ESP32: /api/data.json
+app.get(['/api/data.json', '/api/data.json/', '/data.json', '/data.json/'], async (req, res) => {
+  const data = await readJsonFile(DATA_FILE)
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.setHeader('Access-Control-Allow-Origin', '*')
   res.status(200).send(JSON.stringify(data))
 })
 
@@ -78,9 +99,11 @@ app.post(['/api/update-price', '/api/update-price/'], async (req, res) => {
   try {
     const updated = await writeMirroredFiles(req.body)
     res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Access-Control-Allow-Origin', '*')
     res.status(200).send(JSON.stringify(updated)) // {"name":"...","price":"..."}
   } catch (err) {
     res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Access-Control-Allow-Origin', '*')
     res.status(400).send(JSON.stringify({ success: false, message: err?.message || 'Ошибка' }))
   }
 })

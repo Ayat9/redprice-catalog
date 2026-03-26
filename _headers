@@ -1,0 +1,4 @@
+/api/:path*.json
+  Access-Control-Allow-Origin: *
+  Content-Type: application/json; charset=utf-8
+

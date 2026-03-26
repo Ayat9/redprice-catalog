@@ -27,9 +27,9 @@ function normalizeInput({ name, price }) {
 export async function getPrice() {
   if (typeof window === 'undefined') return { ...DEFAULT_VALUE }
 
-  // 1) Пытаемся получить данные через API (Vite middleware)
+  // 1) Читаем физический JSON-файл на статике (ESP32/SPA обычно его и запрашивают)
   try {
-    const res = await fetch('/api/price', { method: 'GET' })
+    const res = await fetch('/api/data.json', { method: 'GET' })
     if (res.ok) {
       const data = await res.json()
       return {
@@ -41,7 +41,7 @@ export async function getPrice() {
     // fallback ниже
   }
 
-  // 2) Fallback: localStorage
+  // 2) Fallback: localStorage (на случай если JSON недоступен)
   const parsed = safeJsonParse(window.localStorage.getItem(STORAGE_KEY))
   if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_VALUE }
 
