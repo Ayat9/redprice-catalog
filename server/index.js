@@ -108,6 +108,23 @@ app.post(['/api/update-price', '/api/update-price/'], async (req, res) => {
   }
 })
 
+// Прямое сохранение в /api/price(.json), чтобы админка писала "в него".
+app.post(
+  ['/api/price', '/api/price/', '/api/price.json', '/api/price.json/'],
+  async (req, res) => {
+    try {
+      const updated = await writeMirroredFiles(req.body)
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      res.status(200).send(JSON.stringify(updated))
+    } catch (err) {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      res.status(400).send(JSON.stringify({ success: false, message: err?.message || 'Ошибка' }))
+    }
+  },
+)
+
 // 3) Статическая часть (SPA)
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist')
 app.use(express.static(DIST_DIR))

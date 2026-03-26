@@ -58,7 +58,29 @@ export async function updatePrice({ name, price }) {
 
   const next = normalizeInput({ name, price })
 
-  // 1) Пытаемся обновить через API (Vite middleware)
+  // 1) Пишем напрямую в /api/price(.json) endpoint
+  try {
+    const res = await fetch('/api/price', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(next),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      const updated = {
+        name: typeof data?.name === 'string' ? data.name : next.name,
+        price: typeof data?.price === 'string' ? data.price : String(data?.price ?? next.price),
+      }
+      window.dispatchEvent(
+        new CustomEvent('redprice_electronic_price_updated', { detail: updated }),
+      )
+      return updated
+    }
+  } catch (_) {
+    // fallback ниже
+  }
+
+  // 1.1) Совместимость со старым endpoint
   try {
     const res = await fetch('/api/update-price', {
       method: 'POST',
