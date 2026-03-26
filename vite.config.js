@@ -44,7 +44,10 @@ export default defineConfig({
   configureServer(server) {
     server.middlewares.use(async (req, res, next) => {
       try {
-        const pathname = (req.url || '').split('?')[0]
+        let pathname = (req.url || '').split('?')[0]
+        // ESP32 иногда вызывает endpoint с завершающим слэшем: /api/price/
+        // Нормализуем, чтобы отдать JSON и не попасть в SPA fallback (index.html).
+        if (pathname.length > 1) pathname = pathname.replace(/\/$/, '')
 
         if (pathname === '/api/price' && req.method === 'GET') {
           const data = await readStoredPrice()
@@ -97,7 +100,8 @@ export default defineConfig({
   configurePreview(server) {
     server.middlewares.use(async (req, res, next) => {
       try {
-        const pathname = (req.url || '').split('?')[0]
+        let pathname = (req.url || '').split('?')[0]
+        if (pathname.length > 1) pathname = pathname.replace(/\/$/, '')
 
         if (pathname === '/api/price' && req.method === 'GET') {
           const data = await readStoredPrice()
