@@ -27,9 +27,9 @@ function normalizeInput({ name, price }) {
 export async function getPrice() {
   if (typeof window === 'undefined') return { ...DEFAULT_VALUE }
 
-  // 1) Читаем физический JSON-файл на статике (ESP32/SPA обычно его и запрашивают)
+  // 1) Читаем серверный API (Vercel function / backend route)
   try {
-    const res = await fetch('/api/data.json', { method: 'GET' })
+    const res = await fetch('/api/price', { method: 'GET' })
     if (res.ok) {
       const data = await res.json()
       return {
@@ -41,7 +41,21 @@ export async function getPrice() {
     // fallback ниже
   }
 
-  // 2) Fallback: localStorage (на случай если JSON недоступен)
+  // 1.1) Fallback for static JSON route
+  try {
+    const res = await fetch('/api/price.json', { method: 'GET' })
+    if (res.ok) {
+      const data = await res.json()
+      return {
+        name: typeof data?.name === 'string' ? data.name : '',
+        price: typeof data?.price === 'string' ? data.price : String(data?.price ?? ''),
+      }
+    }
+  } catch (_) {
+    // fallback ниже
+  }
+
+  // 2) localStorage fallback if backend is unreachable
   const parsed = safeJsonParse(window.localStorage.getItem(STORAGE_KEY))
   if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_VALUE }
 
