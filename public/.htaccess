@@ -6,6 +6,21 @@
   </FilesMatch>
 </IfModule>
 
+<IfModule mod_authz_core.c>
+  # Make root JSON files public even if parent auth is enabled.
+  <FilesMatch "^(data|price)\.json$">
+    Require all granted
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_auth_basic.c>
+  # Disable inherited Basic Auth for these public JSON files.
+  <FilesMatch "^(data|price)\.json$">
+    AuthType None
+    Require all granted
+  </FilesMatch>
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
