@@ -1,4 +1,4 @@
-const { readPrice } = require('./_supabase')
+import { readPrice } from './_supabase.js'
 
 function setCommonHeaders(res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
@@ -7,7 +7,7 @@ function setCommonHeaders(res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   setCommonHeaders(res)
 
   if (req.method === 'OPTIONS') return res.status(200).end()

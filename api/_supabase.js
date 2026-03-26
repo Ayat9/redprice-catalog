@@ -79,7 +79,7 @@ async function writePrice(input) {
   }
 }
 
-module.exports = {
+export {
   readPrice,
   writePrice,
 }
