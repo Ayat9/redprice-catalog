@@ -113,7 +113,7 @@ const DIST_DIR = path.join(PROJECT_ROOT, 'dist')
 app.use(express.static(DIST_DIR))
 
 // SPA fallback: НЕ трогаем API и запросы с расширением .json/.css/.js
-app.get('*', (req, res) => {
+app.use((req, res) => {
   if (req.path.startsWith('/api/')) return res.status(404).end()
   if (req.path.includes('.')) return res.status(404).end()
   res.sendFile(path.join(DIST_DIR, 'index.html'))

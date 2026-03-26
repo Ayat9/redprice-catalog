@@ -1,0 +1,7 @@
+# Never rewrite API/JSON to SPA
+/api/*   /api/:splat   200
+/*.json  /:splat.json  200
+
+# SPA fallback
+/*       /index.html   200
+
