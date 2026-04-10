@@ -1,4 +1,5 @@
 import { readPrice } from './_supabase.js'
+const DEFAULT_VALUE = { name: '', price: '' }
 
 function setCommonHeaders(res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
@@ -17,7 +18,8 @@ export default async function handler(req, res) {
     const data = await readPrice()
     return res.status(200).json(data)
   } catch (err) {
-    return res.status(500).json({ success: false, message: err?.message || 'Server error' })
+    // Fail-soft for storefront/ESL readers: return valid shape instead of 500.
+    return res.status(200).json({ ...DEFAULT_VALUE })
   }
 }
 
