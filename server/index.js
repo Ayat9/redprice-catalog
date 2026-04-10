@@ -3,6 +3,7 @@ import fs from 'node:fs/promises'
 import fsSync from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { eslExpressMiddleware } from '../lib/esl-handlers.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -154,6 +155,7 @@ async function writePriceValue(payload) {
 
 const app = express()
 app.use(express.json({ type: ['application/json', '*/json'] }))
+app.use(eslExpressMiddleware)
 
 // 1) Строго JSON
 app.get(['/api/price', '/api/price/'], async (req, res) => {

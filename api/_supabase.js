@@ -12,7 +12,17 @@ function ensureConfigured() {
   if (!url || !key) {
     throw new Error('Supabase env is not configured')
   }
-  return { url: url.replace(/\/$/, ''), key, table }
+  const normalizedUrl = url.replace(/\/$/, '')
+  let parsed
+  try {
+    parsed = new URL(normalizedUrl)
+  } catch {
+    throw new Error('SUPABASE_URL is invalid (expected full https URL)')
+  }
+  if (!/^https?:$/.test(parsed.protocol)) {
+    throw new Error('SUPABASE_URL must start with http:// or https://')
+  }
+  return { url: normalizedUrl, key, table }
 }
 
 function normalizePayload(input) {
@@ -29,14 +39,20 @@ async function readPrice() {
   const { url, key, table } = ensureConfigured()
   const endpoint = `${url}/rest/v1/${encodeURIComponent(table)}?id=eq.1&select=name,price&limit=1`
 
-  const res = await fetch(endpoint, {
-    method: 'GET',
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      Accept: 'application/json',
-    },
-  })
+  let res
+  try {
+    res = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Accept: 'application/json',
+      },
+    })
+  } catch (err) {
+    const reason = err?.cause?.code || err?.message || 'unknown network error'
+    throw new Error(`Supabase network error: ${reason}`)
+  }
 
   if (!res.ok) {
     throw new Error(`Supabase read failed (${res.status})`)
@@ -56,16 +72,22 @@ async function writePrice(input) {
   const next = normalizePayload(input)
   const endpoint = `${url}/rest/v1/${encodeURIComponent(table)}?on_conflict=id`
 
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-      Prefer: 'resolution=merge-duplicates,return=representation',
-    },
-    body: JSON.stringify([{ id: 1, name: next.name, price: next.price }]),
-  })
+  let res
+  try {
+    res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=representation',
+      },
+      body: JSON.stringify([{ id: 1, name: next.name, price: next.price }]),
+    })
+  } catch (err) {
+    const reason = err?.cause?.code || err?.message || 'unknown network error'
+    throw new Error(`Supabase network error: ${reason}`)
+  }
 
   if (!res.ok) {
     throw new Error(`Supabase write failed (${res.status})`)

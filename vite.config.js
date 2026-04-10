@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { handleEslRequest, readBody } from './lib/esl-handlers.js'
 
 const DATA_DIR = path.resolve(process.cwd(), '.data')
 const DATA_FILE = path.join(DATA_DIR, 'electronic_price.json')
@@ -48,6 +49,22 @@ export default defineConfig({
         // ESP32 иногда вызывает endpoint с завершающим слэшем: /api/price/
         // Нормализуем, чтобы отдать JSON и не попасть в SPA fallback (index.html).
         if (pathname.length > 1) pathname = pathname.replace(/\/$/, '')
+
+        if (pathname.startsWith('/api/v1/esl') || pathname.startsWith('/api/v1/tag/')) {
+          let bodyText = ''
+          if (req.method === 'POST') {
+            bodyText = await readBody(req)
+          }
+          const out = await handleEslRequest(pathname, req.method || 'GET', bodyText)
+          if (out.handled) {
+            res.statusCode = out.status || 200
+            for (const [k, v] of Object.entries(out.headers || {})) {
+              res.setHeader(k, v)
+            }
+            res.end(out.body)
+            return
+          }
+        }
 
         if (pathname === '/api/price' && req.method === 'GET') {
           const data = await readStoredPrice()
@@ -102,6 +119,22 @@ export default defineConfig({
       try {
         let pathname = (req.url || '').split('?')[0]
         if (pathname.length > 1) pathname = pathname.replace(/\/$/, '')
+
+        if (pathname.startsWith('/api/v1/esl') || pathname.startsWith('/api/v1/tag/')) {
+          let bodyText = ''
+          if (req.method === 'POST') {
+            bodyText = await readBody(req)
+          }
+          const out = await handleEslRequest(pathname, req.method || 'GET', bodyText)
+          if (out.handled) {
+            res.statusCode = out.status || 200
+            for (const [k, v] of Object.entries(out.headers || {})) {
+              res.setHeader(k, v)
+            }
+            res.end(out.body)
+            return
+          }
+        }
 
         if (pathname === '/api/price' && req.method === 'GET') {
           const data = await readStoredPrice()

@@ -12,6 +12,7 @@ import CatalogProcurement from './pages/CatalogProcurement'
 import Admin from './pages/Admin'
 import AdminSetPassword from './pages/AdminSetPassword'
 import AdminCennik from './pages/AdminCennik'
+import AdminRedisEsl from './pages/AdminRedisEsl'
 import './tailwind.css'
 import './App.css'
 
@@ -31,6 +32,7 @@ function App() {
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/set-password" element={<AdminSetPassword />} />
           <Route path="/admin/cennik" element={<AdminCennik />} />
+          <Route path="/admin/redis-esl" element={<AdminRedisEsl />} />
         </Routes>
       </BrowserRouter>
     </ProductsProvider>

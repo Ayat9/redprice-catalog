@@ -676,6 +676,7 @@ export default function Admin() {
           <div className={`admin-nav-group-content ${sidebarOpen.data ? 'open' : ''}`}>
             <button type="button" className={`admin-nav-item ${view === VIEWS.backup ? 'active' : ''}`} onClick={() => setView(VIEWS.backup)}>Резервная копия</button>
             <Link to="/admin/cennik" className="admin-nav-item">Электронные ценники</Link>
+            <Link to="/admin/redis-esl" className="admin-nav-item">REDIS: Управление ценниками</Link>
           </div>
         </div>
         <div className="admin-sidebar-footer">
