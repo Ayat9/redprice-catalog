@@ -24,6 +24,16 @@ function normalizeInput({ name, price }) {
   return next
 }
 
+async function parseApiError(res, fallbackMessage) {
+  try {
+    const data = await res.json()
+    if (typeof data?.message === 'string' && data.message.trim()) return data.message
+  } catch (_) {
+    // ignore JSON parse errors
+  }
+  return fallbackMessage
+}
+
 export async function getPrice() {
   if (typeof window === 'undefined') return { ...DEFAULT_VALUE }
 
@@ -71,6 +81,9 @@ export async function updatePrice({ name, price }) {
   }
 
   const next = normalizeInput({ name, price })
+  const isLocalDev =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
 
   // 1) Пишем через /api/update-price (основной endpoint админки)
   try {
@@ -90,8 +103,12 @@ export async function updatePrice({ name, price }) {
       )
       return updated
     }
+    if (!isLocalDev) {
+      const message = await parseApiError(res, `Ошибка сохранения (${res.status})`)
+      throw new Error(message)
+    }
   } catch (_) {
-    // fallback ниже
+    if (!isLocalDev) throw _
   }
 
   // 1.1) Совместимость: прямой POST в /api/price(.json)
@@ -112,11 +129,15 @@ export async function updatePrice({ name, price }) {
       )
       return updated
     }
+    if (!isLocalDev) {
+      const message = await parseApiError(res, `Ошибка сохранения (${res.status})`)
+      throw new Error(message)
+    }
   } catch (_) {
-    // fallback ниже
+    if (!isLocalDev) throw _
   }
 
-  // 2) Fallback: localStorage
+  // 2) Dev fallback: localStorage
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   window.dispatchEvent(
     new CustomEvent('redprice_electronic_price_updated', { detail: next }),
