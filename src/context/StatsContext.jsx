@@ -6,7 +6,6 @@ const MAX_EVENTS = 5000
 const defaultSettings = {
   platform: { minOrderSum: 0, currency: '₸', siteName: 'Redprice.kz' },
   wholesale: { minOrderSum: 0, currency: '₸' },
-  procurement: { currency: '₸' }
 }
 
 const SETTINGS_KEY = 'redprice_section_settings'

@@ -3,7 +3,12 @@ import fs from 'node:fs/promises'
 import fsSync from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createServer } from 'node:http'
+import { Server as SocketIOServer } from 'socket.io'
 import { eslExpressMiddleware } from '../lib/esl-handlers.js'
+import { handleNewsRequest } from '../lib/news-api.js'
+import { handleEslAdminRequest } from '../lib/esl-admin-handlers.js'
+import { getDashboard, getProductsTable, randomizeRuntimeStatus } from '../lib/esl-admin-store.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -154,8 +159,49 @@ async function writePriceValue(payload) {
 }
 
 const app = express()
-app.use(express.json({ type: ['application/json', '*/json'] }))
+// CMS: загрузка видео в /api/news/media как base64 (до ~100 МБ файла)
+app.use(express.json({ type: ['application/json', '*/json'], limit: '120mb' }))
 app.use(eslExpressMiddleware)
+
+app.use('/uploads', express.static(path.join(PROJECT_ROOT, 'public', 'uploads')))
+
+app.use(async (req, res, next) => {
+  let pathname = (req.path || req.url || '').split('?')[0]
+  if (pathname.length > 1) pathname = pathname.replace(/\/$/, '')
+  if (!pathname.startsWith('/api/news')) return next()
+  const search = req.url.includes('?') ? `?${req.url.split('?')[1]}` : ''
+  let bodyText = ''
+  if (req.method === 'POST' || req.method === 'PUT') {
+    bodyText = typeof req.body === 'object' && req.body !== null ? JSON.stringify(req.body) : String(req.body || '')
+  }
+  const out = await handleNewsRequest(req.method || 'GET', pathname, search, bodyText, req.headers)
+  if (!out) return next()
+  res.status(out.status || 200)
+  for (const [k, v] of Object.entries(out.headers || {})) {
+    res.setHeader(k, v)
+  }
+  res.send(out.body)
+})
+
+app.use(async (req, res, next) => {
+  let pathname = (req.path || req.url || '').split('?')[0]
+  if (pathname.length > 1) pathname = pathname.replace(/\/$/, '')
+  if (!pathname.startsWith('/api/v1/esl/admin')) return next()
+  const search = req.url.includes('?') ? `?${req.url.split('?')[1]}` : ''
+  const bodyText =
+    req.method === 'POST' || req.method === 'PUT'
+      ? typeof req.body === 'object' && req.body !== null
+        ? JSON.stringify(req.body)
+        : String(req.body || '')
+      : ''
+  const out = await handleEslAdminRequest(pathname, req.method || 'GET', bodyText, search)
+  if (!out?.handled) return next()
+  res.status(out.status || 200)
+  for (const [k, v] of Object.entries(out.headers || {})) {
+    res.setHeader(k, v)
+  }
+  res.send(out.body)
+})
 
 // 1) Строго JSON
 app.get(['/api/price', '/api/price/'], async (req, res) => {
@@ -235,7 +281,41 @@ await (async () => {
   }
 })()
 
-app.listen(PORT, () => {
+const httpServer = createServer(app)
+const io = new SocketIOServer(httpServer, {
+  cors: { origin: '*' },
+})
+
+io.on('connection', (socket) => {
+  socket.on('esl:subscribe', ({ storeId } = {}) => {
+    socket.join(`store:${storeId || 'rp-1'}`)
+  })
+})
+
+setInterval(async () => {
+  try {
+    const storeId = 'rp-1'
+    await randomizeRuntimeStatus(storeId)
+    const dashboard = await getDashboard(storeId)
+    const rows = await getProductsTable({ storeId, discrepancyOnly: false, search: '' })
+    io.to(`store:${storeId}`).emit('esl:status', {
+      storeId,
+      dashboard,
+      changedAt: new Date().toISOString(),
+      rows: rows.map((x) => ({
+        mac: x.mac,
+        online: x.online,
+        needsUpdate: x.needsUpdate,
+        priceEsl: x.priceEsl,
+        price1c: x.price1c,
+      })),
+    })
+  } catch (_) {
+    // ignore realtime tick errors
+  }
+}, 8000)
+
+httpServer.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`Server listening on http://localhost:${PORT}`)
 })

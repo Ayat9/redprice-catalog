@@ -3,12 +3,16 @@ import { products as initialProducts } from '../data/products'
 
 const STORAGE_KEY = 'redprice_products'
 const SUPPLIERS_KEY = 'redprice_suppliers'
-const SECTIONS = ['platform', 'wholesale', 'procurement']
+const SECTIONS = ['platform', 'wholesale']
 
 function getFirstSupplierId() {
   try {
     const s = localStorage.getItem(SUPPLIERS_KEY)
-    if (s) { const list = JSON.parse(s); return list[0]?.id } return null
+    if (s) {
+      const list = JSON.parse(s)
+      return list[0]?.id
+    }
+    return null
   } catch (_) {}
   return 's1'
 }
@@ -20,8 +24,20 @@ function normalizeProduct(p, firstSupplierId) {
     type: p.type || '',
     supplierId: p.supplierId || firstSupplierId || 's1',
     article: p.article ?? '',
-    barcode: p.barcode ?? ''
+    barcode: p.barcode ?? '',
   }
+}
+
+function mergeUniqueById(existing, incoming) {
+  const ids = new Set((existing || []).map((p) => p.id))
+  const out = [...(existing || [])]
+  for (const p of incoming || []) {
+    if (p && p.id && !ids.has(p.id)) {
+      out.push(p)
+      ids.add(p.id)
+    }
+  }
+  return out
 }
 
 function loadProducts() {
@@ -34,21 +50,21 @@ function loadProducts() {
         return {
           platform: data.map((p) => normalizeProduct(p, firstId)),
           wholesale: [],
-          procurement: []
         }
       }
-      return {
-        platform: (data.platform || []).map((p) => normalizeProduct(p, firstId)),
-        wholesale: (data.wholesale || []).map((p) => normalizeProduct(p, firstId)),
-        procurement: (data.procurement || []).map((p) => normalizeProduct(p, firstId))
+      let platform = (data.platform || []).map((p) => normalizeProduct(p, firstId))
+      const wholesale = (data.wholesale || []).map((p) => normalizeProduct(p, firstId))
+      const legacyProc = (data.procurement || []).map((p) => normalizeProduct(p, firstId))
+      if (legacyProc.length) {
+        platform = mergeUniqueById(platform, legacyProc)
       }
+      return { platform, wholesale }
     }
   } catch (_) {}
   const defaultList = initialProducts.map((p) => normalizeProduct(p, firstId))
   return {
     platform: defaultList,
     wholesale: [],
-    procurement: []
   }
 }
 
@@ -67,7 +83,7 @@ export function ProductsProvider({ children }) {
     if (!SECTIONS.includes(section)) return
     setState((prev) => ({
       ...prev,
-      [section]: typeof next === 'function' ? next(prev[section] || []) : next
+      [section]: typeof next === 'function' ? next(prev[section] || []) : next,
     }))
   }
 

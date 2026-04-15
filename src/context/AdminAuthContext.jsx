@@ -4,10 +4,7 @@ const SESSION_KEY = 'redprice_admin_auth'
 const USERS_STORAGE_KEY = 'redprice_admin_users'
 const RESET_TOKENS_KEY = 'redprice_admin_reset_tokens'
 
-export const DEPARTMENTS = [
-  { id: 'procurement', name: 'Отдел закупа' },
-  { id: 'data_entry', name: 'Отдел внесения данных' }
-]
+export const DEPARTMENTS = [{ id: 'data_entry', name: 'Отдел внесения данных' }]
 
 export const ROLES = [
   { id: 'admin', name: 'Администратор', description: 'Полный доступ, управление учётными записями' },
@@ -17,7 +14,7 @@ export const ROLES = [
 ]
 
 const DEFAULT_USERS = [
-  { id: 'admin-1', email: 'admin@redprice.kz', password: 'admin123', name: 'Администратор', departmentId: 'procurement', roleId: 'admin' }
+  { id: 'admin-1', email: 'admin@redprice.kz', password: 'admin123', name: 'Администратор', departmentId: 'data_entry', roleId: 'admin' }
 ]
 
 function loadUsers() {
@@ -25,7 +22,12 @@ function loadUsers() {
     const raw = localStorage.getItem(USERS_STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((u) => ({
+          ...u,
+          departmentId: u.departmentId === 'procurement' ? 'data_entry' : u.departmentId,
+        }))
+      }
     }
   } catch (_) {}
   return [...DEFAULT_USERS]
@@ -60,7 +62,14 @@ export function AdminAuthProvider({ children }) {
       const raw = sessionStorage.getItem(SESSION_KEY)
       if (!raw) return null
       const parsed = JSON.parse(raw)
-      if (parsed && typeof parsed === 'object' && parsed.roleId) return parsed
+      if (parsed && typeof parsed === 'object' && parsed.roleId) {
+        if (parsed.departmentId === 'procurement') {
+          const next = { ...parsed, departmentId: 'data_entry' }
+          sessionStorage.setItem(SESSION_KEY, JSON.stringify(next))
+          return next
+        }
+        return parsed
+      }
       sessionStorage.removeItem(SESSION_KEY)
     } catch (_) {}
     return null
@@ -142,7 +151,7 @@ export function AdminAuthProvider({ children }) {
     if (users.some((u) => (u.email || '').toLowerCase() === emailNorm))
       return { success: false, message: 'Пользователь с таким email уже существует.' }
     const id = `user_${Date.now()}`
-    setUsers((prev) => [...prev, { ...user, id, email: user.email.trim(), password: user.password || 'changeme', departmentId: user.departmentId || 'procurement', roleId: user.roleId || 'reader' }])
+    setUsers((prev) => [...prev, { ...user, id, email: user.email.trim(), password: user.password || 'changeme', departmentId: user.departmentId || 'data_entry', roleId: user.roleId || 'reader' }])
     return { success: true }
   }, [users])
 

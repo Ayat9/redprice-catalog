@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState, useEffect, useRef } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useProducts } from '../context/ProductsContext'
 import { useCategories } from '../context/CategoriesContext'
 import { useSuppliers } from '../context/SuppliersContext'
@@ -9,23 +9,42 @@ import { useOrders } from '../context/OrdersContext'
 import { ensureBarcode, generateEAN13 } from '../utils/barcode'
 import { downloadBackup, restoreBackupFromData } from '../utils/backup'
 import { downloadProductTemplate, parseProductCsv, ensureProductBarcodes } from '../utils/productImport'
+import {
+  LayoutDashboard,
+  Package,
+  Truck,
+  FolderTree,
+  Users,
+  LineChart,
+  Database,
+  ChevronRight,
+  PanelLeftClose,
+  PanelRightOpen,
+  ClipboardList,
+  Settings2,
+  Newspaper,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import ApiSettingsWorkspace from '../components/redprice/admin/ApiSettingsWorkspace'
+import AdminNewsWorkspace from '../components/redprice/admin/AdminNewsWorkspace'
 import './Admin.css'
 
-const VIEWS = { dashboard: 'dashboard', products: 'products', suppliers: 'suppliers', categories: 'categories', newProduct: 'newProduct', newCategory: 'newCategory', newSupplier: 'newSupplier', users: 'users', newUser: 'newUser', statistics: 'statistics', settingsPlatform: 'settingsPlatform', settingsWholesale: 'settingsWholesale', settingsProcurement: 'settingsProcurement', backup: 'backup' }
+const SIDEBAR_W = { expanded: 260, collapsed: 72 }
+const navIc = { className: 'size-[18px] shrink-0 text-slate-500', strokeWidth: 1.5, 'aria-hidden': true }
 
-const ADMIN_SECTIONS = [
-  { id: 'platform', name: 'Интернет магазин' },
-  { id: 'wholesale', name: 'Оптовые закупки' },
-  { id: 'procurement', name: 'Отдел закупок' }
-]
+const VIEWS = { dashboard: 'dashboard', products: 'products', suppliers: 'suppliers', categories: 'categories', newProduct: 'newProduct', newCategory: 'newCategory', newSupplier: 'newSupplier', users: 'users', newUser: 'newUser', statistics: 'statistics', backup: 'backup', apiPanel: 'apiPanel', newsEditor: 'newsEditor' }
+
+/** Каталог в админке — секция хранения `platform`. */
+const ADMIN_CATALOG_SECTION = 'platform'
 
 export default function Admin() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { isLoggedIn, login, logout, currentUser, canEdit, canManageUsers, requestPasswordReset, getUsers, addUser, updateUser, deleteUser, DEPARTMENTS, ROLES } = useAdminAuth()
-  const [adminSection, setAdminSection] = useState('platform')
-  const { products, setProducts } = useProducts(adminSection)
-  const { categories, setCategories } = useCategories(adminSection)
+  const { products, setProducts } = useProducts(ADMIN_CATALOG_SECTION)
+  const { categories, setCategories } = useCategories(ADMIN_CATALOG_SECTION)
   const { suppliers, setSuppliers } = useSuppliers()
-  const { stats, setSettings, getSettings } = useStats()
+  const { stats } = useStats()
   const { orders } = useOrders()
   const [view, setView] = useState(VIEWS.dashboard)
   const [loginEmail, setLoginEmail] = useState('')
@@ -36,7 +55,7 @@ export default function Admin() {
   const [resetResult, setResetResult] = useState(null)
   const [editingUser, setEditingUser] = useState(null)
   const [userForm, setUserForm] = useState(null)
-  const [newUserForm, setNewUserForm] = useState({ email: '', name: '', password: '', departmentId: 'procurement', roleId: 'reader' })
+  const [newUserForm, setNewUserForm] = useState({ email: '', name: '', password: '', departmentId: 'data_entry', roleId: 'reader' })
   const [userFilter, setUserFilter] = useState({ search: '' })
   const [userSort, setUserSort] = useState({ field: 'name', dir: 'asc' })
 
@@ -45,9 +64,59 @@ export default function Admin() {
   }, [canEdit, view])
 
   useEffect(() => {
-    setProductFilter({ search: '', supplierId: '', categoryId: '' })
-    if (adminSection !== 'procurement' && (view === VIEWS.suppliers || view === VIEWS.newSupplier)) setView(VIEWS.products)
-  }, [adminSection])
+    if (!isLoggedIn) return
+    const p = searchParams.get('panel')
+    if (p === 'api') setView(VIEWS.apiPanel)
+    else if (p === 'news') setView(VIEWS.newsEditor)
+  }, [isLoggedIn, searchParams])
+
+  const prevViewRef = useRef(null)
+  useEffect(() => {
+    if (!isLoggedIn) return
+    const prev = prevViewRef.current
+    prevViewRef.current = view
+    if (view === VIEWS.apiPanel && searchParams.get('panel') !== 'api') {
+      setSearchParams(
+        (p0) => {
+          const p = new URLSearchParams(p0)
+          p.set('panel', 'api')
+          return p
+        },
+        { replace: true }
+      )
+    }
+    if (prev === VIEWS.apiPanel && view !== VIEWS.apiPanel && searchParams.get('panel') === 'api') {
+      setSearchParams(
+        (p0) => {
+          const p = new URLSearchParams(p0)
+          p.delete('panel')
+          return p
+        },
+        { replace: true }
+      )
+    }
+    if (view === VIEWS.newsEditor && searchParams.get('panel') !== 'news') {
+      setSearchParams(
+        (p0) => {
+          const p = new URLSearchParams(p0)
+          p.set('panel', 'news')
+          return p
+        },
+        { replace: true }
+      )
+    }
+    if (prev === VIEWS.newsEditor && view !== VIEWS.newsEditor && searchParams.get('panel') === 'news') {
+      setSearchParams(
+        (p0) => {
+          const p = new URLSearchParams(p0)
+          p.delete('panel')
+          return p
+        },
+        { replace: true }
+      )
+    }
+  }, [isLoggedIn, view, searchParams, setSearchParams])
+
   const [editingProduct, setEditingProduct] = useState(null)
   const [editingCategory, setEditingCategory] = useState(null)
   const [editingSupplier, setEditingSupplier] = useState(null)
@@ -70,15 +139,39 @@ export default function Admin() {
   const [supplierFilter, setSupplierFilter] = useState({ search: '' })
   const [supplierSort, setSupplierSort] = useState({ field: 'name', dir: 'asc' })
   const [sidebarOpen, setSidebarOpen] = useState({
-    products: true,
-    suppliers: true,
-    categories: true,
-    users: true,
-    settings: true,
-    statistics: true,
-    data: true
+    products: false,
+    suppliers: false,
+    categories: false,
+    users: false,
+    statistics: false,
+    data: false,
   })
   const toggleSidebarGroup = (key) => setSidebarOpen((prev) => ({ ...prev, [key]: !prev[key] }))
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const toggleGroupNav = (key) => {
+    if (sidebarCollapsed) setSidebarCollapsed(false)
+    toggleSidebarGroup(key)
+  }
+
+  useEffect(() => {
+    const groupByView = {
+      [VIEWS.products]: 'products',
+      [VIEWS.newProduct]: 'products',
+      [VIEWS.suppliers]: 'suppliers',
+      [VIEWS.newSupplier]: 'suppliers',
+      [VIEWS.categories]: 'categories',
+      [VIEWS.newCategory]: 'categories',
+      [VIEWS.users]: 'users',
+      [VIEWS.newUser]: 'users',
+      [VIEWS.statistics]: 'statistics',
+      [VIEWS.backup]: 'data',
+      [VIEWS.apiPanel]: 'data',
+      [VIEWS.newsEditor]: 'data',
+    }
+    const key = groupByView[view]
+    if (key) setSidebarOpen((prev) => ({ ...prev, [key]: true }))
+  }, [view])
+
   const [contentPanelsOpen, setContentPanelsOpen] = useState({
     productsList: true,
     newProduct: false,
@@ -117,7 +210,7 @@ export default function Admin() {
       imageUrl: product.imageUrl || '',
       article: product.article ?? '',
       barcode: product.barcode ?? '',
-      supplierId: product.supplierId ?? (adminSection === 'procurement' ? suppliers[0]?.id : ''),
+      supplierId: product.supplierId ?? suppliers[0]?.id ?? '',
       categoryId: product.categoryId,
       variants: product.variants.map((v) => ({
         ...v,
@@ -205,7 +298,7 @@ export default function Admin() {
       imageUrl: '',
       article: '',
       barcode: '',
-      supplierId: adminSection === 'procurement' ? (suppliers[0]?.id || '') : '',
+      supplierId: suppliers[0]?.id || '',
       categoryId: categories[0]?.id || '',
       variants: [{ id: `v${Date.now()}`, name: '', packQty: 1, price: 0, priceRetail: 0, priceWholesale: 0, priceSupplier: 0 }]
     })
@@ -381,7 +474,7 @@ export default function Admin() {
     let list = [...products]
     if (productFilter.search) {
       const q = productFilter.search.toLowerCase()
-      list = list.filter((p) => p.name?.toLowerCase().includes(q) || categories.find((c) => c.id === p.categoryId)?.name?.toLowerCase().includes(q) || (adminSection === 'procurement' && suppliers.find((s) => s.id === p.supplierId)?.name?.toLowerCase().includes(q)))
+      list = list.filter((p) => p.name?.toLowerCase().includes(q) || categories.find((c) => c.id === p.categoryId)?.name?.toLowerCase().includes(q) || suppliers.find((s) => s.id === p.supplierId)?.name?.toLowerCase().includes(q))
     }
     if (productFilter.supplierId) list = list.filter((p) => p.supplierId === productFilter.supplierId)
     if (productFilter.categoryId) list = list.filter((p) => p.categoryId === productFilter.categoryId)
@@ -394,7 +487,7 @@ export default function Admin() {
       return productSort.dir === 'asc' ? cmp : -cmp
     })
     return list
-  }, [products, productFilter, productSort, suppliers, categories, adminSection])
+  }, [products, productFilter, productSort, suppliers, categories])
 
   const filteredCategories = React.useMemo(() => {
     const roots = categories.filter((c) => !c.parentId)
@@ -468,7 +561,7 @@ export default function Admin() {
   const initNewUser = () => {
     setView(VIEWS.users)
     setContentPanelsOpen((prev) => ({ ...prev, newUser: true, usersList: prev.usersList }))
-    setNewUserForm({ email: '', name: '', password: '', departmentId: 'procurement', roleId: 'reader' })
+    setNewUserForm({ email: '', name: '', password: '', departmentId: 'data_entry', roleId: 'reader' })
   }
   const createUser = () => {
     const res = addUser(newUserForm)
@@ -477,7 +570,7 @@ export default function Admin() {
       return
     }
     setView(VIEWS.users)
-    setNewUserForm({ email: '', name: '', password: '', departmentId: 'procurement', roleId: 'reader' })
+    setNewUserForm({ email: '', name: '', password: '', departmentId: 'data_entry', roleId: 'reader' })
     setContentPanelsOpen((p) => ({ ...p, newUser: false }))
   }
 
@@ -587,45 +680,76 @@ export default function Admin() {
 
   return (
     <div className="admin-panel">
-      <aside className="admin-sidebar-dark" aria-label="Меню">
+      <aside
+        className={cn('admin-sidebar-light', sidebarCollapsed && 'admin-sidebar-light--collapsed')}
+        style={{
+          width: sidebarCollapsed ? SIDEBAR_W.collapsed : SIDEBAR_W.expanded,
+          minWidth: sidebarCollapsed ? SIDEBAR_W.collapsed : SIDEBAR_W.expanded,
+        }}
+        aria-label="Меню"
+      >
         <div className="admin-sidebar-brand">
-          <Link to="/" className="admin-sidebar-logo">Redprice</Link>
-          <span className="admin-sidebar-tagline">Админ-панель</span>
+          <Link to="/" className="admin-sidebar-logo" title="Redprice">
+            {sidebarCollapsed ? 'R' : 'Redprice'}
+          </Link>
+          {!sidebarCollapsed && <span className="admin-sidebar-tagline">Админ-панель</span>}
         </div>
-        <button type="button" className={`admin-nav-item ${view === VIEWS.dashboard ? 'active' : ''}`} onClick={() => setView(VIEWS.dashboard)}>
-          <span className="admin-nav-icon" aria-hidden>📊</span>
-          <span>Дашборд</span>
+        <button
+          type="button"
+          className={`admin-nav-item ${view === VIEWS.dashboard ? 'active' : ''}`}
+          onClick={() => setView(VIEWS.dashboard)}
+          title="Дашборд"
+        >
+          <LayoutDashboard {...navIc} />
+          {!sidebarCollapsed && <span>Дашборд</span>}
         </button>
         <div className="admin-sidebar-divider" />
         <div className="admin-nav-group admin-nav-group-collapsible">
-          <button type="button" className={`admin-nav-group-toggle ${sidebarOpen.products ? 'open' : ''}`} onClick={() => toggleSidebarGroup('products')} aria-expanded={sidebarOpen.products}>
-            <span className="admin-nav-icon" aria-hidden>📦</span>
-            <span>Товары</span>
-            <span className="admin-nav-group-chevron" aria-hidden>{sidebarOpen.products ? '▼' : '▶'}</span>
+          <button
+            type="button"
+            className={`admin-nav-group-toggle ${sidebarOpen.products ? 'open' : ''}`}
+            onClick={() => toggleGroupNav('products')}
+            aria-expanded={sidebarOpen.products}
+            title="Товары"
+          >
+            <Package {...navIc} />
+            {!sidebarCollapsed && <span>Товары</span>}
+            {!sidebarCollapsed && (
+              <ChevronRight
+                className={cn(
+                  'admin-nav-group-chevron ml-auto h-4 w-4 shrink-0 transition-transform',
+                  sidebarOpen.products && 'rotate-90'
+                )}
+                strokeWidth={1.5}
+                aria-hidden
+              />
+            )}
           </button>
           <div className={`admin-nav-group-content ${sidebarOpen.products ? 'open' : ''}`}>
             <button type="button" className={`admin-nav-item ${view === VIEWS.products ? 'active' : ''}`} onClick={() => setView(VIEWS.products)}>Список товаров</button>
             {canEdit && <button type="button" className={`admin-nav-item admin-nav-item-sub ${view === VIEWS.products && contentPanelsOpen.newProduct ? 'active' : ''}`} onClick={initNewProduct}>+ Новый товар</button>}
           </div>
         </div>
-        {adminSection === 'procurement' && (
-          <div className="admin-nav-group admin-nav-group-collapsible">
-            <button type="button" className={`admin-nav-group-toggle ${sidebarOpen.suppliers ? 'open' : ''}`} onClick={() => toggleSidebarGroup('suppliers')} aria-expanded={sidebarOpen.suppliers}>
-              <span className="admin-nav-icon" aria-hidden>🚚</span>
-              <span>Поставщики</span>
-              <span className="admin-nav-group-chevron" aria-hidden>{sidebarOpen.suppliers ? '▼' : '▶'}</span>
-            </button>
-            <div className={`admin-nav-group-content ${sidebarOpen.suppliers ? 'open' : ''}`}>
-              <button type="button" className={`admin-nav-item ${view === VIEWS.suppliers ? 'active' : ''}`} onClick={() => setView(VIEWS.suppliers)}>Список поставщиков</button>
-              {canEdit && <button type="button" className={`admin-nav-item admin-nav-item-sub ${view === VIEWS.suppliers && contentPanelsOpen.newSupplier ? 'active' : ''}`} onClick={initNewSupplier}>+ Новый поставщик</button>}
-            </div>
-          </div>
-        )}
         <div className="admin-nav-group admin-nav-group-collapsible">
-          <button type="button" className={`admin-nav-group-toggle ${sidebarOpen.categories ? 'open' : ''}`} onClick={() => toggleSidebarGroup('categories')} aria-expanded={sidebarOpen.categories}>
-            <span className="admin-nav-icon" aria-hidden>📁</span>
-            <span>Категории</span>
-            <span className="admin-nav-group-chevron" aria-hidden>{sidebarOpen.categories ? '▼' : '▶'}</span>
+          <button type="button" className={`admin-nav-group-toggle ${sidebarOpen.suppliers ? 'open' : ''}`} onClick={() => toggleGroupNav('suppliers')} aria-expanded={sidebarOpen.suppliers} title="Поставщики">
+            <Truck {...navIc} />
+            {!sidebarCollapsed && <span>Поставщики</span>}
+            {!sidebarCollapsed && (
+              <ChevronRight className={cn('admin-nav-group-chevron ml-auto h-4 w-4 shrink-0 transition-transform', sidebarOpen.suppliers && 'rotate-90')} strokeWidth={1.5} aria-hidden />
+            )}
+          </button>
+          <div className={`admin-nav-group-content ${sidebarOpen.suppliers ? 'open' : ''}`}>
+            <button type="button" className={`admin-nav-item ${view === VIEWS.suppliers ? 'active' : ''}`} onClick={() => setView(VIEWS.suppliers)}>Список поставщиков</button>
+            {canEdit && <button type="button" className={`admin-nav-item admin-nav-item-sub ${view === VIEWS.suppliers && contentPanelsOpen.newSupplier ? 'active' : ''}`} onClick={initNewSupplier}>+ Новый поставщик</button>}
+          </div>
+        </div>
+        <div className="admin-nav-group admin-nav-group-collapsible">
+          <button type="button" className={`admin-nav-group-toggle ${sidebarOpen.categories ? 'open' : ''}`} onClick={() => toggleGroupNav('categories')} aria-expanded={sidebarOpen.categories} title="Категории">
+            <FolderTree {...navIc} />
+            {!sidebarCollapsed && <span>Категории</span>}
+            {!sidebarCollapsed && (
+              <ChevronRight className={cn('admin-nav-group-chevron ml-auto h-4 w-4 shrink-0 transition-transform', sidebarOpen.categories && 'rotate-90')} strokeWidth={1.5} aria-hidden />
+            )}
           </button>
           <div className={`admin-nav-group-content ${sidebarOpen.categories ? 'open' : ''}`}>
             <button type="button" className={`admin-nav-item ${view === VIEWS.categories ? 'active' : ''}`} onClick={() => setView(VIEWS.categories)}>Список категорий</button>
@@ -634,10 +758,12 @@ export default function Admin() {
         </div>
         {canManageUsers && (
           <div className="admin-nav-group admin-nav-group-collapsible">
-            <button type="button" className={`admin-nav-group-toggle ${sidebarOpen.users ? 'open' : ''}`} onClick={() => toggleSidebarGroup('users')} aria-expanded={sidebarOpen.users}>
-              <span className="admin-nav-icon" aria-hidden>👤</span>
-              <span>Учётные записи</span>
-              <span className="admin-nav-group-chevron" aria-hidden>{sidebarOpen.users ? '▼' : '▶'}</span>
+            <button type="button" className={`admin-nav-group-toggle ${sidebarOpen.users ? 'open' : ''}`} onClick={() => toggleGroupNav('users')} aria-expanded={sidebarOpen.users} title="Учётные записи">
+              <Users {...navIc} />
+              {!sidebarCollapsed && <span>Учётные записи</span>}
+              {!sidebarCollapsed && (
+                <ChevronRight className={cn('admin-nav-group-chevron ml-auto h-4 w-4 shrink-0 transition-transform', sidebarOpen.users && 'rotate-90')} strokeWidth={1.5} aria-hidden />
+              )}
             </button>
             <div className={`admin-nav-group-content ${sidebarOpen.users ? 'open' : ''}`}>
               <button type="button" className={`admin-nav-item ${view === VIEWS.users ? 'active' : ''}`} onClick={() => setView(VIEWS.users)}>Список сотрудников</button>
@@ -646,93 +772,124 @@ export default function Admin() {
           </div>
         )}
         <div className="admin-nav-group admin-nav-group-collapsible">
-          <button type="button" className={`admin-nav-group-toggle ${sidebarOpen.settings ? 'open' : ''}`} onClick={() => toggleSidebarGroup('settings')} aria-expanded={sidebarOpen.settings}>
-            <span className="admin-nav-icon" aria-hidden>⚙️</span>
-            <span>Настройки разделов</span>
-            <span className="admin-nav-group-chevron" aria-hidden>{sidebarOpen.settings ? '▼' : '▶'}</span>
-          </button>
-          <div className={`admin-nav-group-content ${sidebarOpen.settings ? 'open' : ''}`}>
-            <button type="button" className={`admin-nav-item ${view === VIEWS.settingsPlatform ? 'active' : ''}`} onClick={() => setView(VIEWS.settingsPlatform)}>Интернет магазин</button>
-            <button type="button" className={`admin-nav-item ${view === VIEWS.settingsWholesale ? 'active' : ''}`} onClick={() => setView(VIEWS.settingsWholesale)}>Оптовые закупки</button>
-            <button type="button" className={`admin-nav-item ${view === VIEWS.settingsProcurement ? 'active' : ''}`} onClick={() => setView(VIEWS.settingsProcurement)}>Отдел закупок</button>
-          </div>
-        </div>
-        <div className="admin-nav-group admin-nav-group-collapsible">
-          <button type="button" className={`admin-nav-group-toggle ${sidebarOpen.statistics ? 'open' : ''}`} onClick={() => toggleSidebarGroup('statistics')} aria-expanded={sidebarOpen.statistics}>
-            <span className="admin-nav-icon" aria-hidden>📊</span>
-            <span>Статистика</span>
-            <span className="admin-nav-group-chevron" aria-hidden>{sidebarOpen.statistics ? '▼' : '▶'}</span>
+          <button type="button" className={`admin-nav-group-toggle ${sidebarOpen.statistics ? 'open' : ''}`} onClick={() => toggleGroupNav('statistics')} aria-expanded={sidebarOpen.statistics} title="Статистика">
+            <LineChart {...navIc} />
+            {!sidebarCollapsed && <span>Статистика</span>}
+            {!sidebarCollapsed && (
+              <ChevronRight className={cn('admin-nav-group-chevron ml-auto h-4 w-4 shrink-0 transition-transform', sidebarOpen.statistics && 'rotate-90')} strokeWidth={1.5} aria-hidden />
+            )}
           </button>
           <div className={`admin-nav-group-content ${sidebarOpen.statistics ? 'open' : ''}`}>
             <button type="button" className={`admin-nav-item ${view === VIEWS.statistics ? 'active' : ''}`} onClick={() => setView(VIEWS.statistics)}>Посещения, поиск, конверсия</button>
           </div>
         </div>
         <div className="admin-nav-group admin-nav-group-collapsible">
-          <button type="button" className={`admin-nav-group-toggle ${sidebarOpen.data ? 'open' : ''}`} onClick={() => toggleSidebarGroup('data')} aria-expanded={sidebarOpen.data}>
-            <span className="admin-nav-icon" aria-hidden>💾</span>
-            <span>Данные</span>
-            <span className="admin-nav-group-chevron" aria-hidden>{sidebarOpen.data ? '▼' : '▶'}</span>
+          <button type="button" className={`admin-nav-group-toggle ${sidebarOpen.data ? 'open' : ''}`} onClick={() => toggleGroupNav('data')} aria-expanded={sidebarOpen.data} title="Данные">
+            <Database {...navIc} />
+            {!sidebarCollapsed && <span>Данные</span>}
+            {!sidebarCollapsed && (
+              <ChevronRight className={cn('admin-nav-group-chevron ml-auto h-4 w-4 shrink-0 transition-transform', sidebarOpen.data && 'rotate-90')} strokeWidth={1.5} aria-hidden />
+            )}
           </button>
           <div className={`admin-nav-group-content ${sidebarOpen.data ? 'open' : ''}`}>
             <button type="button" className={`admin-nav-item ${view === VIEWS.backup ? 'active' : ''}`} onClick={() => setView(VIEWS.backup)}>Резервная копия</button>
             <Link to="/admin/cennik" className="admin-nav-item">Электронные ценники</Link>
             <Link to="/admin/redis-esl" className="admin-nav-item">REDIS: Управление ценниками</Link>
+            <button
+              type="button"
+              className={`admin-nav-item ${view === VIEWS.apiPanel ? 'active' : ''}`}
+              title="Панель API"
+              onClick={() => setView(VIEWS.apiPanel)}
+            >
+              <Settings2 {...navIc} />
+              {!sidebarCollapsed && <span>Панель API</span>}
+            </button>
+            <button
+              type="button"
+              className={`admin-nav-item ${view === VIEWS.newsEditor ? 'active' : ''}`}
+              title="Редактор новостей"
+              onClick={() => setView(VIEWS.newsEditor)}
+            >
+              <Newspaper {...navIc} />
+              {!sidebarCollapsed && <span>Новости (CMS)</span>}
+            </button>
           </div>
         </div>
+        <div className="admin-sidebar-toolbar">
+          <button
+            type="button"
+            className="admin-sidebar-collapse-btn"
+            onClick={() => setSidebarCollapsed((c) => !c)}
+            aria-label={sidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'}
+          >
+            {sidebarCollapsed ? <PanelRightOpen className="size-4" strokeWidth={1.5} aria-hidden /> : <PanelLeftClose className="size-4" strokeWidth={1.5} aria-hidden />}
+          </button>
+        </div>
         <div className="admin-sidebar-footer">
-          <Link to="/" className="admin-sidebar-link">← На сайт</Link>
+          <Link to="/" className="admin-sidebar-link">{sidebarCollapsed ? '←' : '← На сайт'}</Link>
         </div>
       </aside>
 
       <div className="admin-main">
-        <header className="admin-topbar">
-          <div className="admin-topbar-left">
-            <div className="admin-section-pills">
-              {ADMIN_SECTIONS.map((s) => (
-                <button key={s.id} type="button" className={`admin-section-btn ${adminSection === s.id ? 'active' : ''}`} onClick={() => setAdminSection(s.id)}>{s.name}</button>
-              ))}
+        <header className="admin-macos-header">
+          <div className="admin-macos-header-row">
+            <div className="admin-macos-header-user">
+              <span className="admin-topbar-user">{currentUser?.name || currentUser?.email}</span>
+              <span className="admin-topbar-role">{ROLES.find((r) => r.id === currentUser?.roleId)?.name || currentUser?.roleId}</span>
             </div>
-          </div>
-          <div className="admin-topbar-right">
-            <span className="admin-topbar-user">{currentUser?.name || currentUser?.email}</span>
-            <span className="admin-topbar-role">{ROLES.find((r) => r.id === currentUser?.roleId)?.name || currentUser?.roleId}</span>
             <button type="button" className="admin-logout" onClick={logout}>Выйти</button>
           </div>
         </header>
 
-        <div className="admin-content">
+        <div className={cn('admin-content', view === VIEWS.apiPanel && 'admin-content--flush')}>
+          {view === VIEWS.apiPanel && (
+            <div className="admin-api-panel-root">
+              <ApiSettingsWorkspace />
+            </div>
+          )}
+
+          {view === VIEWS.newsEditor && <AdminNewsWorkspace />}
+
           {view === VIEWS.dashboard && (
             <div className="admin-section">
               <h2 className="admin-section-title">Дашборд</h2>
-              <p className="admin-section-desc">Сводка по разделу «{ADMIN_SECTIONS.find((s) => s.id === adminSection)?.name}».</p>
+              <p className="admin-section-desc">Сводка по каталогу.</p>
               <div className="admin-dashboard-grid">
                 <button type="button" className="admin-dashboard-card" onClick={() => setView(VIEWS.products)}>
-                  <span className="admin-dashboard-card-icon">📦</span>
+                  <Package className="admin-dashboard-card-lucide text-slate-400" strokeWidth={1.5} aria-hidden />
                   <span className="admin-dashboard-card-value">{products.length}</span>
                   <span className="admin-dashboard-card-label">Товаров</span>
                 </button>
                 <button type="button" className="admin-dashboard-card" onClick={() => setView(VIEWS.categories)}>
-                  <span className="admin-dashboard-card-icon">📁</span>
+                  <FolderTree className="admin-dashboard-card-lucide text-slate-400" strokeWidth={1.5} aria-hidden />
                   <span className="admin-dashboard-card-value">{categories.length}</span>
                   <span className="admin-dashboard-card-label">Категорий</span>
                 </button>
                 <button type="button" className="admin-dashboard-card" onClick={() => setView(VIEWS.statistics)}>
-                  <span className="admin-dashboard-card-icon">📋</span>
+                  <ClipboardList className="admin-dashboard-card-lucide text-slate-400" strokeWidth={1.5} aria-hidden />
                   <span className="admin-dashboard-card-value">{ordersList.length}</span>
                   <span className="admin-dashboard-card-label">Заказов</span>
                 </button>
-                {adminSection === 'procurement' && (
-                  <button type="button" className="admin-dashboard-card" onClick={() => setView(VIEWS.suppliers)}>
-                    <span className="admin-dashboard-card-icon">🚚</span>
-                    <span className="admin-dashboard-card-value">{suppliers.length}</span>
-                    <span className="admin-dashboard-card-label">Поставщиков</span>
-                  </button>
-                )}
+                <button type="button" className="admin-dashboard-card" onClick={() => setView(VIEWS.suppliers)}>
+                  <Truck className="admin-dashboard-card-lucide text-slate-400" strokeWidth={1.5} aria-hidden />
+                  <span className="admin-dashboard-card-value">{suppliers.length}</span>
+                  <span className="admin-dashboard-card-label">Поставщиков</span>
+                </button>
               </div>
               <div className="admin-dashboard-actions">
-                {canEdit && <button type="button" className="admin-dashboard-btn" onClick={initNewProduct}>+ Новый товар</button>}
-                {canEdit && <button type="button" className="admin-dashboard-btn admin-dashboard-btn-secondary" onClick={() => setView(VIEWS.categories)}>Категории</button>}
-                <button type="button" className="admin-dashboard-btn admin-dashboard-btn-secondary" onClick={() => setView(VIEWS.statistics)}>Статистика</button>
+                {canEdit && (
+                  <Button type="button" size="sm" className="h-9 rounded-xl px-4" onClick={initNewProduct}>
+                    + Новый товар
+                  </Button>
+                )}
+                {canEdit && (
+                  <Button type="button" variant="outline" size="sm" className="h-9 rounded-xl px-4" onClick={() => setView(VIEWS.categories)}>
+                    Категории
+                  </Button>
+                )}
+                <Button type="button" variant="outline" size="sm" className="h-9 rounded-xl px-4" onClick={() => setView(VIEWS.statistics)}>
+                  Статистика
+                </Button>
               </div>
             </div>
           )}
@@ -752,12 +909,10 @@ export default function Admin() {
                   <div className="admin-collapsible-content">
                     <div className="admin-filters">
                       <input type="text" placeholder="Поиск по названию, категории" value={productFilter.search} onChange={(e) => setProductFilter((f) => ({ ...f, search: e.target.value }))} className="admin-input admin-filter-input" />
-                      {adminSection === 'procurement' && (
-                        <select value={productFilter.supplierId} onChange={(e) => setProductFilter((f) => ({ ...f, supplierId: e.target.value }))} className="admin-input admin-filter-select">
-                          <option value="">Все поставщики</option>
-                          {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
-                      )}
+                      <select value={productFilter.supplierId} onChange={(e) => setProductFilter((f) => ({ ...f, supplierId: e.target.value }))} className="admin-input admin-filter-select">
+                        <option value="">Все поставщики</option>
+                        {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
                       <select value={productFilter.categoryId} onChange={(e) => setProductFilter((f) => ({ ...f, categoryId: e.target.value }))} className="admin-input admin-filter-select">
                         <option value="">Все категории</option>
                         {categoriesTree.map((c) => <option key={c.id} value={c.id}>{'\u00A0'.repeat((c._depth || 0) * 2)}{c.name}</option>)}
@@ -767,12 +922,8 @@ export default function Admin() {
                         <select value={`${productSort.field}-${productSort.dir}`} onChange={(e) => { const v = e.target.value; const [field, dir] = v.split('-'); setProductSort({ field, dir }); }} className="admin-input admin-filter-select">
                           <option value="name-asc">Название А–Я</option>
                           <option value="name-desc">Название Я–А</option>
-                          {adminSection === 'procurement' && (
-                          <>
-                            <option value="supplierId-asc">Поставщик А–Я</option>
-                            <option value="supplierId-desc">Поставщик Я–А</option>
-                          </>
-                        )}
+                          <option value="supplierId-asc">Поставщик А–Я</option>
+                          <option value="supplierId-desc">Поставщик Я–А</option>
                         <option value="categoryId-asc">Категория А–Я</option>
                           <option value="categoryId-desc">Категория Я–А</option>
                         </select>
@@ -803,7 +954,7 @@ export default function Admin() {
                             <th>Артикул</th>
                             <th>Штрихкод</th>
                             <th>Тип</th>
-                            {adminSection === 'procurement' && <th>Поставщик</th>}
+                            <th>Поставщик</th>
                             <th>Категория</th>
                             <th>Варианты</th>
                             <th></th>
@@ -825,7 +976,7 @@ export default function Admin() {
                               <td><code className="admin-code admin-code-sm">{p.article || '—'}</code></td>
                               <td><code className="admin-code admin-code-sm">{p.barcode || '—'}</code></td>
                               <td>{p.type || '—'}</td>
-                              {adminSection === 'procurement' && <td>{suppliers.find((s) => s.id === p.supplierId)?.name ?? p.supplierId ?? '—'}</td>}
+                              <td>{suppliers.find((s) => s.id === p.supplierId)?.name ?? p.supplierId ?? '—'}</td>
                               <td>{categories.find((c) => c.id === p.categoryId)?.name ?? p.categoryId}</td>
                               <td>{p.variants?.length ?? 0}</td>
                               <td>
@@ -876,24 +1027,22 @@ export default function Admin() {
                           </div>
                           {newProductForm.imageUrl && <img src={newProductForm.imageUrl} alt="" className="admin-preview" onError={(e) => { e.target.style.display = 'none' }} />}
                         </div>
-                        {adminSection === 'procurement' && (
-                          <div className="admin-select-with-add">
-                            <label>Поставщик
-                              <select value={newProductForm.supplierId} onChange={(e) => updateNewProduct('supplierId', e.target.value)} className="admin-input">
-                                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                              </select>
-                            </label>
-                            <button type="button" className="btn-inline-add" onClick={() => setShowInlineNewSupplier(!showInlineNewSupplier)}>{showInlineNewSupplier ? 'Скрыть' : '+ Добавить поставщика'}</button>
-                            {showInlineNewSupplier && (
-                              <div className="admin-inline-form">
-                                <input type="text" value={inlineSupplierForm.name} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, name: e.target.value }))} placeholder="Наименование компании" className="admin-input" />
-                                <input type="text" value={inlineSupplierForm.phone} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Сотовый телефон" className="admin-input" />
-                                <input type="text" value={inlineSupplierForm.address} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, address: e.target.value }))} placeholder="Адрес компании" className="admin-input" />
-                                <button type="button" className="btn-save btn-inline-save" onClick={() => createSupplierInline((id) => updateNewProduct('supplierId', id))}>Создать и выбрать</button>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        <div className="admin-select-with-add">
+                          <label>Поставщик
+                            <select value={newProductForm.supplierId} onChange={(e) => updateNewProduct('supplierId', e.target.value)} className="admin-input">
+                              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                          </label>
+                          <button type="button" className="btn-inline-add" onClick={() => setShowInlineNewSupplier(!showInlineNewSupplier)}>{showInlineNewSupplier ? 'Скрыть' : '+ Добавить поставщика'}</button>
+                          {showInlineNewSupplier && (
+                            <div className="admin-inline-form">
+                              <input type="text" value={inlineSupplierForm.name} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, name: e.target.value }))} placeholder="Наименование компании" className="admin-input" />
+                              <input type="text" value={inlineSupplierForm.phone} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Сотовый телефон" className="admin-input" />
+                              <input type="text" value={inlineSupplierForm.address} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, address: e.target.value }))} placeholder="Адрес компании" className="admin-input" />
+                              <button type="button" className="btn-save btn-inline-save" onClick={() => createSupplierInline((id) => updateNewProduct('supplierId', id))}>Создать и выбрать</button>
+                            </div>
+                          )}
+                        </div>
                         <div className="admin-select-with-add">
                           <label>Категория
                             <select value={newProductForm.categoryId} onChange={(e) => updateNewProduct('categoryId', e.target.value)} className="admin-input">
@@ -954,7 +1103,7 @@ export default function Admin() {
                   )}
                 </div>
               )}
-              {adminSection === 'procurement' && canEdit && (
+              {canEdit && (
                 <div className="admin-collapsible-block">
                   <button type="button" className={`admin-collapsible-toggle ${contentPanelsOpen.productsImport ? 'open' : ''}`} onClick={() => { setContentPanelsOpen((p) => ({ ...p, productsImport: !p.productsImport })); setImportResult(null); }} aria-expanded={contentPanelsOpen.productsImport}>
                     <span>📤 Импорт из файла (Excel/CSV)</span>
@@ -1252,7 +1401,7 @@ export default function Admin() {
                         </select>
                       </label>
                       <div className="admin-form-actions">
-                        <button type="button" className="btn-cancel" onClick={() => { setNewUserForm({ email: '', name: '', password: '', departmentId: 'procurement', roleId: 'reader' }); setContentPanelsOpen((p) => ({ ...p, newUser: false })); }}>Отмена</button>
+                        <button type="button" className="btn-cancel" onClick={() => { setNewUserForm({ email: '', name: '', password: '', departmentId: 'data_entry', roleId: 'reader' }); setContentPanelsOpen((p) => ({ ...p, newUser: false })); }}>Отмена</button>
                         <button type="button" className="btn-save" onClick={createUser}>Создать сотрудника</button>
                       </div>
                     </div>
@@ -1345,38 +1494,6 @@ export default function Admin() {
             </div>
           )}
 
-          {view === VIEWS.settingsPlatform && (
-            <div className="admin-section admin-form-section">
-              <h2 className="admin-section-title">Настройки раздела «Интернет магазин»</h2>
-              <p className="admin-section-desc">Параметры интернет-магазина (главная страница).</p>
-              <div className="admin-form-card">
-                <label>Минимальная сумма заказа (₸) <input type="number" min="0" value={getSettings('platform').minOrderSum ?? 0} onChange={(e) => setSettings('platform', { minOrderSum: Number(e.target.value) || 0 })} className="admin-input" /></label>
-                <label>Название сайта <input type="text" value={getSettings('platform').siteName ?? 'Redprice.kz'} onChange={(e) => setSettings('platform', { siteName: e.target.value })} className="admin-input" /></label>
-                <label>Валюта <input type="text" value={getSettings('platform').currency ?? '₸'} onChange={(e) => setSettings('platform', { currency: e.target.value })} className="admin-input" placeholder="₸" /></label>
-              </div>
-            </div>
-          )}
-
-          {view === VIEWS.settingsWholesale && (
-            <div className="admin-section admin-form-section">
-              <h2 className="admin-section-title">Настройки раздела «Оптовые закупки»</h2>
-              <p className="admin-section-desc">Параметры каталога оптовых закупок (/opt).</p>
-              <div className="admin-form-card">
-                <label>Минимальная сумма заказа (₸) <input type="number" min="0" value={getSettings('wholesale').minOrderSum ?? 0} onChange={(e) => setSettings('wholesale', { minOrderSum: Number(e.target.value) || 0 })} className="admin-input" /></label>
-                <label>Валюта <input type="text" value={getSettings('wholesale').currency ?? '₸'} onChange={(e) => setSettings('wholesale', { currency: e.target.value })} className="admin-input" /></label>
-              </div>
-            </div>
-          )}
-
-          {view === VIEWS.settingsProcurement && (
-            <div className="admin-section admin-form-section">
-              <h2 className="admin-section-title">Настройки раздела «Отдел закупок»</h2>
-              <p className="admin-section-desc">Параметры каталога для отдела закупок (/zakup).</p>
-              <div className="admin-form-card">
-                <label>Валюта <input type="text" value={getSettings('procurement').currency ?? '₸'} onChange={(e) => setSettings('procurement', { currency: e.target.value })} className="admin-input" /></label>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -1412,24 +1529,22 @@ export default function Admin() {
                 </div>
                 {productForm.imageUrl && <img src={productForm.imageUrl} alt="" className="admin-preview" onError={(e) => { e.target.style.display = 'none' }} />}
               </div>
-              {adminSection === 'procurement' && (
-                <div className="admin-select-with-add">
-                  <label>Поставщик
-                    <select value={productForm.supplierId} onChange={(e) => updateProductForm('supplierId', e.target.value)} className="admin-input">
-                      {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                  </label>
-                  <button type="button" className="btn-inline-add" onClick={() => setShowInlineNewSupplierModal(!showInlineNewSupplierModal)}>{showInlineNewSupplierModal ? 'Скрыть' : '+ Добавить поставщика'}</button>
-                  {showInlineNewSupplierModal && (
-                    <div className="admin-inline-form">
-                      <input type="text" value={inlineSupplierForm.name} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, name: e.target.value }))} placeholder="Наименование компании" className="admin-input" />
-                      <input type="text" value={inlineSupplierForm.phone} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Сотовый телефон" className="admin-input" />
-                      <input type="text" value={inlineSupplierForm.address} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, address: e.target.value }))} placeholder="Адрес компании" className="admin-input" />
-                      <button type="button" className="btn-save btn-inline-save" onClick={() => createSupplierInline((id) => updateProductForm('supplierId', id))}>Создать и выбрать</button>
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="admin-select-with-add">
+                <label>Поставщик
+                  <select value={productForm.supplierId} onChange={(e) => updateProductForm('supplierId', e.target.value)} className="admin-input">
+                    {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </label>
+                <button type="button" className="btn-inline-add" onClick={() => setShowInlineNewSupplierModal(!showInlineNewSupplierModal)}>{showInlineNewSupplierModal ? 'Скрыть' : '+ Добавить поставщика'}</button>
+                {showInlineNewSupplierModal && (
+                  <div className="admin-inline-form">
+                    <input type="text" value={inlineSupplierForm.name} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, name: e.target.value }))} placeholder="Наименование компании" className="admin-input" />
+                    <input type="text" value={inlineSupplierForm.phone} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Сотовый телефон" className="admin-input" />
+                    <input type="text" value={inlineSupplierForm.address} onChange={(e) => setInlineSupplierForm((f) => ({ ...f, address: e.target.value }))} placeholder="Адрес компании" className="admin-input" />
+                    <button type="button" className="btn-save btn-inline-save" onClick={() => createSupplierInline((id) => updateProductForm('supplierId', id))}>Создать и выбрать</button>
+                  </div>
+                )}
+              </div>
               <div className="admin-select-with-add">
                 <label>Категория
                   <select value={productForm.categoryId} onChange={(e) => updateProductForm('categoryId', e.target.value)} className="admin-input">
@@ -1471,7 +1586,7 @@ export default function Admin() {
                       </label>
                       <label className="admin-variant-field">
                         <span className="admin-variant-field-label">Поставщик ₸</span>
-                        <input type="number" min="0" value={v.priceSupplier ?? v.price ?? 0} onChange={(e) => updateProductVariant(i, 'priceSupplier', e.target.value)} className="admin-input admin-input-num" title="Поставщик (отдел закупок)" />
+                        <input type="number" min="0" value={v.priceSupplier ?? v.price ?? 0} onChange={(e) => updateProductVariant(i, 'priceSupplier', e.target.value)} className="admin-input admin-input-num" title="Цена поставщика" />
                       </label>
                       <div className="admin-variant-row-action">
                         <button type="button" className="btn-remove-variant" onClick={() => removeProductVariant(i)} title="Удалить вариант">Удалить</button>

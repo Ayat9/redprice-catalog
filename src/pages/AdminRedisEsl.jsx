@@ -1,34 +1,53 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { io } from 'socket.io-client'
 import { useAdminAuth } from '../context/AdminAuthContext'
 import './Admin.css'
 
+const STORE_ID = 'rp-1'
+const SOCKET_ENABLED = !import.meta.env.DEV
+const socket = SOCKET_ENABLED ? io('/', { autoConnect: false, transports: ['websocket', 'polling'] }) : null
+
+async function j(url, options) {
+  const r = await fetch(url, options)
+  const data = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(data.message || data.error || 'Ошибка API')
+  return data
+}
+
 export default function AdminRedisEsl() {
   const { isLoggedIn, canEdit } = useAdminAuth()
-  const [items, setItems] = useState([])
   const [backend, setBackend] = useState('')
-  const [mac, setMac] = useState('')
-  const [productId, setProductId] = useState('')
+  const [dashboard, setDashboard] = useState({ total: 0, online: 0, offline: 0, needsUpdate: 0, wifiLoad: 0 })
+  const [queueLength, setQueueLength] = useState(0)
+  const [rows, setRows] = useState([])
+  const [q, setQ] = useState('')
+  const [discrepancyOnly, setDiscrepancyOnly] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [syncing, setSyncing] = useState(false)
-  const [binding, setBinding] = useState(false)
-  const [message, setMessage] = useState({ ok: null, text: '' })
+  const [nightMode, setNightMode] = useState({ enabled: false, time: '02:00' })
+  const [bind, setBind] = useState({ mac: '', productId: '' })
+  const [message, setMessage] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/v1/esl/nomenclature')
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.message || 'Ошибка загрузки номенклатуры')
-      const next = Array.isArray(data.items) ? data.items : []
-      setItems(next)
-      setBackend(typeof data.backend === 'string' ? data.backend : '')
+      const [d, p, n] = await Promise.all([
+        j(`/api/v1/esl/admin/dashboard?storeId=${STORE_ID}`),
+        j(`/api/v1/esl/admin/products?storeId=${STORE_ID}&discrepancyOnly=${discrepancyOnly ? '1' : '0'}&q=${encodeURIComponent(q)}`),
+        j('/api/v1/esl/admin/night-mode'),
+      ])
+      setBackend(d.backend || '')
+      setDashboard(d.dashboard || {})
+      setQueueLength(Number(d.queue || 0))
+      setRows(Array.isArray(p.rows) ? p.rows : [])
+      setNightMode({ enabled: Boolean(n.enabled), time: n.time || '02:00' })
+      if (!bind.productId && p.rows?.[0]?.productId) setBind((x) => ({ ...x, productId: p.rows[0].productId }))
     } catch (e) {
-      setMessage({ ok: false, text: e?.message || 'Ошибка загрузки' })
+      setMessage(e?.message || 'Ошибка загрузки')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [bind.productId, discrepancyOnly, q])
 
   useEffect(() => {
     if (!isLoggedIn) return
@@ -36,184 +55,263 @@ export default function AdminRedisEsl() {
   }, [isLoggedIn, load])
 
   useEffect(() => {
-    if (!items.length) return
-    if (!items.some((x) => String(x.id) === String(productId))) {
-      setProductId(String(items[0].id))
+    if (!SOCKET_ENABLED) return undefined
+    if (!isLoggedIn) return undefined
+    socket?.connect()
+    socket?.emit('esl:subscribe', { storeId: STORE_ID })
+    const onStatus = (payload) => {
+      if (payload?.storeId !== STORE_ID) return
+      setDashboard(payload.dashboard || {})
+      setRows((prev) =>
+        prev.map((r) => {
+          const m = payload.rows?.find((x) => x.mac === r.mac)
+          if (!m) return r
+          return { ...r, online: m.online, needsUpdate: m.needsUpdate, priceEsl: m.priceEsl, price1c: m.price1c }
+        })
+      )
     }
-  }, [items, productId])
-
-  const onSync = () => {
-    setSyncing(true)
-    setMessage({ ok: null, text: '' })
-    fetch('/api/v1/esl/sync-1c', { method: 'POST' })
-      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
-      .then(({ ok, j }) => {
-        if (!ok) throw new Error(j.message || 'Ошибка синхронизации')
-        setMessage({ ok: true, text: j.message || 'Готово' })
-        return load()
-      })
-      .catch((e) => setMessage({ ok: false, text: e?.message || 'Ошибка' }))
-      .finally(() => setSyncing(false))
-  }
-
-  const onBind = (e) => {
-    e.preventDefault()
-    if (!canEdit) {
-      setMessage({ ok: false, text: 'Недостаточно прав' })
-      return
+    socket?.on('esl:status', onStatus)
+    return () => {
+      socket?.off('esl:status', onStatus)
+      socket?.disconnect()
     }
-    setBinding(true)
-    setMessage({ ok: null, text: '' })
-    fetch('/api/v1/esl/bind', {
+  }, [isLoggedIn])
+
+  const productOptions = useMemo(() => {
+    const m = new Map()
+    rows.forEach((r) => {
+      if (!m.has(r.productId)) m.set(r.productId, `${r.name} (${r.productId})`)
+    })
+    return [...m.entries()].map(([value, label]) => ({ value, label }))
+  }, [rows])
+
+  async function savePrice(mac, priceEsl) {
+    await j('/api/v1/esl/admin/price', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mac, productId }),
+      body: JSON.stringify({ mac, priceEsl }),
     })
-      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
-      .then(({ ok, j }) => {
-        if (!ok) throw new Error(j.message || 'Ошибка привязки')
-        setMessage({ ok: true, text: `Привязано: ${j.mac} → товар ${j.productId}` })
-        setMac('')
+    setMessage('Цена ESL сохранена')
+    load()
+  }
+
+  async function doBind(e) {
+    e.preventDefault()
+    await j('/api/v1/esl/admin/bind', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storeId: STORE_ID, mac: bind.mac, productId: bind.productId }),
+    })
+    setMessage('Ценник привязан')
+    setBind((x) => ({ ...x, mac: '' }))
+    load()
+  }
+
+  async function ping(mac) {
+    const out = await j('/api/v1/esl/admin/ping', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mac }),
+    })
+    setMessage(out.message || 'Ping отправлен')
+  }
+
+  async function enqueueMismatch() {
+    const mismatch = rows.filter((r) => r.discrepancy)
+    for (const r of mismatch) {
+      // eslint-disable-next-line no-await-in-loop
+      await j('/api/v1/esl/admin/discrepancy/enqueue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storeId: STORE_ID, mac: r.mac, productId: r.productId, nextPrice: r.price1c }),
       })
-      .catch((err) => setMessage({ ok: false, text: err?.message || 'Ошибка' }))
-      .finally(() => setBinding(false))
+    }
+    setMessage(`В очередь добавлено: ${mismatch.length}`)
+    load()
+  }
+
+  async function batch(action) {
+    const out = await j('/api/v1/esl/admin/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storeId: STORE_ID, action }),
+    })
+    setMessage(out.message || 'Готово')
+  }
+
+  async function saveNightMode() {
+    await j('/api/v1/esl/admin/night-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nightMode),
+    })
+    setMessage('Ночной режим сохранен')
+  }
+
+  async function runNightNow() {
+    const out = await j('/api/v1/esl/admin/night-mode/run', { method: 'POST' })
+    setMessage(`Ночной обработчик: ${out.processed || 0} задач`)
+    load()
   }
 
   if (!isLoggedIn) {
     return (
-      <div className="admin-page">
-        <header className="admin-header">
-          <Link to="/" className="admin-back">← На главную</Link>
-          <h1 className="admin-header-title">REDIS: Управление ценниками</h1>
-          <p className="admin-header-desc">Войдите в админ-панель для доступа.</p>
-        </header>
-        <div className="admin-container">
-          <Link to="/admin" className="btn-save" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center' }}>
-            Перейти в админ-панель
-          </Link>
-        </div>
+      <div className="admin-page p-6">
+        <Link to="/admin" className="btn-save">Перейти в админ-панель</Link>
       </div>
     )
   }
 
   return (
-    <div className="admin-panel">
-      <aside className="admin-sidebar-dark" aria-label="Меню">
-        <div className="admin-sidebar-brand">
-          <Link to="/" className="admin-sidebar-logo">Redprice</Link>
-          <span className="admin-sidebar-tagline">Админ-панель</span>
+    <div className="admin-page p-4 md:p-6">
+      <div className="mx-auto max-w-[1400px] space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold text-slate-900">ESL Device Dashboard</h1>
+          <div className="text-xs text-slate-500">Backend: {backend || '—'} · store: {STORE_ID}</div>
         </div>
-        <div className="admin-nav-group">
-          <div className="admin-nav-group-content open">
-            <Link to="/admin" className="admin-nav-item">← Обзор админки</Link>
-            <Link to="/admin/cennik" className="admin-nav-item">Электронные ценники</Link>
-            <span className="admin-nav-item active">REDIS: Управление ценниками</span>
+
+        {message && <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{message}</div>}
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <Kpi label="Всего устройств" value={dashboard.total} />
+          <Kpi label="Online" value={dashboard.online} tone="emerald" />
+          <Kpi label="Offline" value={dashboard.offline} tone="rose" />
+          <Kpi label="Требуют обновления" value={dashboard.needsUpdate} tone="amber" />
+          <Kpi label="В очереди" value={queueLength} />
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-2 text-sm font-medium text-slate-700">Нагрузка Wi-Fi магазина</div>
+          <div className="h-3 w-full overflow-hidden rounded bg-slate-100">
+            <div className="h-full bg-[#E41C2A]" style={{ width: `${dashboard.wifiLoad || 0}%` }} />
           </div>
+          <div className="mt-1 text-xs text-slate-500">{dashboard.wifiLoad || 0}%</div>
         </div>
-        <div className="admin-sidebar-footer">
-          <Link to="/" className="admin-sidebar-link">← На сайт</Link>
-        </div>
-      </aside>
 
-      <div className="admin-main">
-        <header className="admin-topbar">
-          <div className="admin-topbar-left">
-            <h1 className="admin-section-title" style={{ margin: 0 }}>REDIS: Управление ценниками</h1>
-          </div>
-        </header>
-
-        <div className="admin-content">
-          <div className="admin-section admin-section-card">
-            <div className="admin-section-head">
-              <h2 className="admin-section-title">Номенклатура (1С / Redis)</h2>
-              <p className="admin-section-summary">
-                Бэкенд: <strong>{backend || '—'}</strong>
-                {backend === 'memory' && (
-                  <span> · задайте <code>REDIS_URL</code> для продакшена</span>
-                )}
-              </p>
+        <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <input
+                className="min-w-[220px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Поиск: товар / поставщик / MAC / стеллаж"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+              <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                <input type="checkbox" checked={discrepancyOnly} onChange={(e) => setDiscrepancyOnly(e.target.checked)} />
+                Расхождение цен
+              </label>
+              <button type="button" className="btn-save" onClick={load} disabled={loading}>Обновить</button>
             </div>
-            <div className="admin-toolbar" style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-              <button type="button" className="btn-save" disabled={syncing || !canEdit} onClick={onSync}>
-                {syncing ? 'Синхронизация…' : 'Синхронизация с 1С'}
-              </button>
-              <span className="admin-section-desc" style={{ margin: 0 }}>Имитация загрузки из 1С в Redis (заглушка).</span>
-            </div>
-
-            {message.text && (
-              <p className={message.ok === false ? 'admin-login-error' : 'admin-login-success'} style={{ marginBottom: 16 }}>
-                {message.text}
-              </p>
-            )}
-
-            <div className="admin-table-wrap">
-              <table className="admin-table">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
                 <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Название</th>
-                    <th>Артикул</th>
-                    <th>Цена</th>
-                    <th>Скидка %</th>
+                  <tr className="border-b border-slate-200 text-left text-slate-500">
+                    <th className="py-2 pr-3">Фото</th>
+                    <th className="py-2 pr-3">Название</th>
+                    <th className="py-2 pr-3">Поставщик</th>
+                    <th className="py-2 pr-3">Цена 1С</th>
+                    <th className="py-2 pr-3">Цена ESL</th>
+                    <th className="py-2 pr-3">MAC</th>
+                    <th className="py-2 pr-3">Действия</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? (
-                    <tr><td colSpan={5}>Загрузка…</td></tr>
-                  ) : items.length === 0 ? (
-                    <tr><td colSpan={5}>Нет данных. Нажмите «Синхронизация с 1С».</td></tr>
-                  ) : (
-                    items.map((row) => (
-                      <tr key={row.id}>
-                        <td>{row.id}</td>
-                        <td>{row.name}</td>
-                        <td>{row.article}</td>
-                        <td>{row.price}</td>
-                        <td>{row.discount ?? '0'}</td>
-                      </tr>
-                    ))
-                  )}
+                  {rows.map((r) => (
+                    <tr key={r.mac} className="border-b border-slate-100">
+                      <td className="py-2 pr-3">
+                        <div className="h-10 w-10 overflow-hidden rounded bg-slate-100">
+                          {r.photo ? <img src={r.photo} alt="" className="h-full w-full object-cover" /> : null}
+                        </div>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <div className="font-medium text-slate-900">{r.name}</div>
+                        <div className="text-xs text-slate-400">{r.productId}</div>
+                      </td>
+                      <td className="py-2 pr-3">{r.supplier}</td>
+                      <td className="py-2 pr-3">{r.price1c}</td>
+                      <td className="py-2 pr-3">
+                        <EditablePrice value={r.priceEsl} onSave={(v) => savePrice(r.mac, v)} />
+                        {r.discrepancy && <div className="text-xs text-amber-600">Нужно обновить</div>}
+                      </td>
+                      <td className="py-2 pr-3 font-mono text-xs">{r.mac}</td>
+                      <td className="py-2 pr-3">
+                        <button type="button" className="rounded-lg border border-slate-200 px-2 py-1 text-xs" onClick={() => ping(r.mac)}>Пинг</button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
 
-          <div className="admin-section admin-section-card">
-            <div className="admin-section-head">
-              <h2 className="admin-section-title">Привязка ESP32</h2>
-              <p className="admin-section-desc">Ключ в Redis: <code>device:{'{mac}'}</code> → ID товара</p>
-            </div>
-            <form className="admin-inline-form" onSubmit={onBind}>
-              <label className="admin-variant-field" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span className="admin-sort-label">MAC-адрес</span>
-                <input
-                  type="text"
-                  className="admin-input"
-                  placeholder="aa:bb:cc:dd:ee:ff или aabbccddeeff"
-                  value={mac}
-                  onChange={(e) => setMac(e.target.value)}
-                  autoComplete="off"
-                />
-              </label>
-              <label className="admin-variant-field" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span className="admin-sort-label">Товар</span>
-                <select
-                  className="admin-input admin-filter-select"
-                  value={productId}
-                  onChange={(e) => setProductId(e.target.value)}
-                >
-                  {items.map((row) => (
-                    <option key={row.id} value={row.id}>{row.name} ({row.id})</option>
-                  ))}
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="mb-2 text-sm font-semibold text-slate-900">Быстрая привязка MAC</h3>
+              <form className="space-y-2" onSubmit={doBind}>
+                <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="aa:bb:cc:dd:ee:ff" value={bind.mac} onChange={(e) => setBind((x) => ({ ...x, mac: e.target.value }))} />
+                <select className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={bind.productId} onChange={(e) => setBind((x) => ({ ...x, productId: e.target.value }))}>
+                  {productOptions.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
                 </select>
-              </label>
-              <button type="submit" className="btn-save" disabled={binding || !canEdit || !items.length}>
-                {binding ? 'Сохранение…' : 'Привязать ценник'}
-              </button>
-            </form>
+                <button type="submit" className="btn-save w-full" disabled={!canEdit}>Привязать «на лету»</button>
+              </form>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="mb-2 text-sm font-semibold text-slate-900">Групповые действия</h3>
+              <div className="grid gap-2">
+                <button type="button" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" onClick={() => batch('refresh_rack')}>Обновить весь стеллаж</button>
+                <button type="button" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" onClick={() => batch('restart_store')}>Перезагрузить все ESP32</button>
+                <button type="button" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" onClick={enqueueMismatch}>В очередь: расхождения цен</button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="mb-2 text-sm font-semibold text-slate-900">Ночной режим (MQTT worker)</h3>
+              <div className="space-y-2">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={nightMode.enabled} onChange={(e) => setNightMode((x) => ({ ...x, enabled: e.target.checked }))} />
+                  Включен
+                </label>
+                <input type="time" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={nightMode.time} onChange={(e) => setNightMode((x) => ({ ...x, time: e.target.value }))} />
+                <button type="button" className="btn-save w-full" onClick={saveNightMode}>Сохранить расписание</button>
+                <button type="button" className="rounded-lg border border-slate-200 px-3 py-2 text-sm w-full" onClick={runNightNow}>Запустить сейчас</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function Kpi({ label, value, tone = 'slate' }) {
+  const toneClass =
+    tone === 'emerald' ? 'text-emerald-600' : tone === 'rose' ? 'text-rose-600' : tone === 'amber' ? 'text-amber-600' : 'text-slate-900'
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className={`mt-1 text-2xl font-semibold ${toneClass}`}>{value ?? 0}</div>
+    </div>
+  )
+}
+
+function EditablePrice({ value, onSave }) {
+  const [editing, setEditing] = useState(false)
+  const [local, setLocal] = useState(value)
+  useEffect(() => setLocal(value), [value])
+  if (!editing) {
+    return (
+      <button type="button" className="rounded border border-slate-200 px-2 py-1 text-xs" onClick={() => setEditing(true)}>
+        {value || '—'} ₸
+      </button>
+    )
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <input className="w-20 rounded border border-slate-200 px-2 py-1 text-xs" value={local} onChange={(e) => setLocal(e.target.value)} />
+      <button type="button" className="rounded border border-slate-200 px-1 py-1 text-xs" onClick={() => { onSave(local); setEditing(false) }}>OK</button>
+      <button type="button" className="rounded border border-slate-200 px-1 py-1 text-xs" onClick={() => { setLocal(value); setEditing(false) }}>×</button>
     </div>
   )
 }

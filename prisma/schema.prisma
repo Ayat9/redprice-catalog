@@ -1,0 +1,272 @@
+// Redprice.kz — схема БД (PostgreSQL)
+// Связи: Инвесторы ↔ Магазины, Товары, очередь изменений цен (ESL), блог, интеграции 1С
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ——— Учётные записи и роли ———
+
+enum UserRole {
+  ADMIN
+  INVESTOR
+  PROCUREMENT // отдел закупа
+  CONTENT // редактор блога
+  READER
+}
+
+/// Пользователь входа (единая таблица; инвестор и сотрудник — через связи)
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String? // если не SSO
+  name         String?
+  role         UserRole  @default(READER)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  investorProfile Investor?
+  blogPostsWritten BlogPost[] @relation("BlogAuthor")
+  priceJobsCreated PriceChangeJob[]
+}
+
+/// Профиль инвестора: к магазинам через InvestorStore
+model Investor {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Внешний ID из CRM / 1С (опционально)
+  externalRef String? @unique
+  displayName String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  storeLinks InvestorStore[]
+}
+
+/// Торговая точка (магазин сети)
+model Store {
+  id           String   @id @default(cuid())
+  name         String
+  /// Код точки в 1С
+  external1cId String?  @unique
+  address      String?
+  timezone     String   @default("Asia/Almaty")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  investorLinks     InvestorStore[]
+  storeProducts     StoreProductSnapshot[]
+  priceChangeJobs   PriceChangeJob[]
+  eslSchedules      EslDisplaySchedule[]
+  integrationEvents IntegrationSyncLog[]
+}
+
+/// Связь Investor_ID ↔ Store_ID (много-ко-многим)
+model InvestorStore {
+  id         String   @id @default(cuid())
+  investorId String
+  storeId    String
+  investor   Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  store      Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+  /// Права на уровне точки (расширение)
+  canViewFinance Boolean @default(true)
+  canViewVideo   Boolean @default(true)
+
+  @@unique([investorId, storeId])
+  @@index([investorId])
+  @@index([storeId])
+}
+
+// ——— Номенклатура и цены (закуп / витрина) ———
+
+/// Глобальная номенклатура (1С / каталог)
+model Product {
+  id          String   @id @default(cuid())
+  /// Идентификатор номенклатуры в 1С
+  sku1c       String?  @unique
+  name        String
+  article     String?
+  barcode     String?
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  /// Поставщик по умолчанию (закуп / отдел закупок)
+  supplierId  String?
+  supplier    Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  storeSnapshots StoreProductSnapshot[]
+  priceJobs      PriceChangeJob[]
+
+  @@index([supplierId])
+}
+
+model Category {
+  id       String     @id @default(cuid())
+  name     String
+  parentId String?
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+}
+
+/// Снимок по точке: цена из 1С, текущая ESL, последняя синхронизация
+model StoreProductSnapshot {
+  id            String   @id @default(cuid())
+  storeId       String
+  productId     String
+  store         Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  priceFrom1c   Decimal? @db.Decimal(14, 2)
+  priceOnShelfEsl Decimal? @db.Decimal(14, 2) /// текущая цена на ценнике
+  currency      String   @default("KZT")
+
+  last1cSyncAt  DateTime?
+  lastEslSyncAt DateTime?
+  updatedAt     DateTime @updatedAt
+
+  @@unique([storeId, productId])
+  @@index([storeId])
+  @@index([productId])
+}
+
+enum PriceJobStatus {
+  PENDING      // в очереди
+  SCHEDULED    // отложено на ночь
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+/// Отложенное применение цены (очередь «применить ночью»)
+model PriceChangeJob {
+  id             String          @id @default(cuid())
+  storeId        String
+  productId      String
+  store          Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  newPrice       Decimal         @db.Decimal(14, 2)
+  currency       String          @default("KZT")
+
+  status         PriceJobStatus  @default(PENDING)
+  /// Когда выполнить (ночной батч — выставляется фронтом / cron)
+  scheduledFor   DateTime
+  processedAt    DateTime?
+
+  errorMessage   String?
+
+  createdById    String?
+  createdBy      User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([status, scheduledFor])
+  @@index([storeId, productId])
+}
+
+// ——— Автоматизация: ESL и обмен с 1С ———
+
+/// Расписание обновления электронных ценников (по точке или глобально)
+model EslDisplaySchedule {
+  id          String   @id @default(cuid())
+  storeId     String?
+  store       Store?   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  /// Cron или JSON правил (например {"hour": 2, "minute": 0})
+  cronExpression String @default("0 2 * * *")
+  timezone       String @default("Asia/Almaty")
+  isEnabled      Boolean @default(true)
+
+  label       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum IntegrationDirection {
+  IMPORT_FROM_1C
+  EXPORT_TO_ESL
+  FULL_SYNC
+}
+
+enum IntegrationStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
+  RUNNING
+}
+
+/// Статусы и логи обмена с 1С (и при необходимости с ESL-брокером)
+model IntegrationSyncLog {
+  id          String               @id @default(cuid())
+  storeId     String?
+  store       Store?               @relation(fields: [storeId], references: [id], onDelete: SetNull)
+
+  direction   IntegrationDirection
+  status      IntegrationStatus
+  startedAt   DateTime             @default(now())
+  finishedAt  DateTime?
+  message     String?
+  /// Сырые метаданные (кол-во строк, id пакета 1С)
+  payloadJson Json?
+
+  @@index([storeId, startedAt])
+  @@index([startedAt])
+}
+
+// ——— Контент: новости на главной ———
+
+/// Публикации новостей / блога (CMS). HTML в `body`, опционально Quill delta в `contentJson`.
+model BlogPost {
+  id            String    @id @default(cuid())
+  title         String
+  slug          String    @unique
+  excerpt       String?
+  /// HTML из редактора (Quill и т.п.)
+  body          String    @db.Text
+  /// Опционально: документ Quill (JSON) для повторного редактирования
+  contentJson   Json?
+  coverImageUrl String?
+  videoUrl      String?
+  /// stack | split-left | split-right | video
+  layoutType    String    @default("stack")
+  /// investors | customers (и др. метки категории)
+  category      String    @default("customers")
+  published     Boolean   @default(false)
+  publishedAt   DateTime?
+
+  authorId      String?
+  author        User?     @relation("BlogAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([published, publishedAt])
+  @@index([category])
+}
+
+// ——— Поставщики (связь с закупом; расширение под 1С) ———
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  address   String?
+  external1cId String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+}

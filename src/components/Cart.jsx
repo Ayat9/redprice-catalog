@@ -196,7 +196,7 @@ export default function Cart({ items, total, supplierId, supplierName, supplierP
     if (items.length === 0) return
     try {
       const order = buildOrderFromCart()
-      if (onSaveOrder) onSaveOrder({ ...order, orderType: isWholesale ? 'wholesale' : 'procurement' })
+      if (onSaveOrder) onSaveOrder({ ...order, orderType: isWholesale ? 'wholesale' : 'platform' })
       openInvoiceAsPdf({
         items,
         total,

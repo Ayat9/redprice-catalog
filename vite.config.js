@@ -1,8 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { handleEslRequest, readBody } from './lib/esl-handlers.js'
+import { handleNewsRequest } from './lib/news-api.js'
+import { handleEslAdminRequest } from './lib/esl-admin-handlers.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const DATA_DIR = path.resolve(process.cwd(), '.data')
 const DATA_FILE = path.join(DATA_DIR, 'electronic_price.json')
@@ -38,7 +44,12 @@ async function writeStoredPrice(payload) {
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   optimizeDeps: {
     include: ['antd'],
   },
@@ -49,6 +60,38 @@ export default defineConfig({
         // ESP32 иногда вызывает endpoint с завершающим слэшем: /api/price/
         // Нормализуем, чтобы отдать JSON и не попасть в SPA fallback (index.html).
         if (pathname.length > 1) pathname = pathname.replace(/\/$/, '')
+
+        if (pathname.startsWith('/api/news')) {
+          let bodyText = ''
+          if (req.method === 'POST' || req.method === 'PUT') {
+            bodyText = await readBody(req)
+          }
+          const q = (req.url || '').includes('?') ? `?${(req.url || '').split('?')[1]}` : ''
+          const out = await handleNewsRequest(req.method || 'GET', pathname, q, bodyText, req.headers)
+          if (out) {
+            res.statusCode = out.status || 200
+            for (const [k, v] of Object.entries(out.headers || {})) {
+              res.setHeader(k, v)
+            }
+            res.end(out.body)
+            return
+          }
+        }
+
+        if (pathname.startsWith('/api/v1/esl/admin')) {
+          let bodyText = ''
+          if (req.method === 'POST' || req.method === 'PUT') {
+            bodyText = await readBody(req)
+          }
+          const q = (req.url || '').includes('?') ? `?${(req.url || '').split('?')[1]}` : ''
+          const out = await handleEslAdminRequest(pathname, req.method || 'GET', bodyText, q)
+          if (out?.handled) {
+            res.statusCode = out.status || 200
+            for (const [k, v] of Object.entries(out.headers || {})) res.setHeader(k, v)
+            res.end(out.body)
+            return
+          }
+        }
 
         if (pathname.startsWith('/api/v1/esl') || pathname.startsWith('/api/v1/tag/')) {
           let bodyText = ''
@@ -119,6 +162,38 @@ export default defineConfig({
       try {
         let pathname = (req.url || '').split('?')[0]
         if (pathname.length > 1) pathname = pathname.replace(/\/$/, '')
+
+        if (pathname.startsWith('/api/news')) {
+          let bodyText = ''
+          if (req.method === 'POST' || req.method === 'PUT') {
+            bodyText = await readBody(req)
+          }
+          const q = (req.url || '').includes('?') ? `?${(req.url || '').split('?')[1]}` : ''
+          const out = await handleNewsRequest(req.method || 'GET', pathname, q, bodyText, req.headers)
+          if (out) {
+            res.statusCode = out.status || 200
+            for (const [k, v] of Object.entries(out.headers || {})) {
+              res.setHeader(k, v)
+            }
+            res.end(out.body)
+            return
+          }
+        }
+
+        if (pathname.startsWith('/api/v1/esl/admin')) {
+          let bodyText = ''
+          if (req.method === 'POST' || req.method === 'PUT') {
+            bodyText = await readBody(req)
+          }
+          const q = (req.url || '').includes('?') ? `?${(req.url || '').split('?')[1]}` : ''
+          const out = await handleEslAdminRequest(pathname, req.method || 'GET', bodyText, q)
+          if (out?.handled) {
+            res.statusCode = out.status || 200
+            for (const [k, v] of Object.entries(out.headers || {})) res.setHeader(k, v)
+            res.end(out.body)
+            return
+          }
+        }
 
         if (pathname.startsWith('/api/v1/esl') || pathname.startsWith('/api/v1/tag/')) {
           let bodyText = ''
