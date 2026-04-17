@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
+import { VideoUrlEmbed } from '@/components/shared/VideoUrlEmbed'
 
 const PAGE_SIZE = 9
 const VIEW_MODES = [
@@ -39,7 +40,10 @@ function formatRuDate(iso) {
   })
 }
 
-export default function VideoSurveillance() {
+/**
+ * @param {{ storeVideoUrl?: string | null }} props
+ */
+export default function VideoSurveillance({ storeVideoUrl }) {
   const [dateIso, setDateIso] = useState(todayIsoLocal)
   const [page, setPage] = useState(0)
   const [cameras, setCameras] = useState([])
@@ -71,8 +75,24 @@ export default function VideoSurveillance() {
     setPage(0)
   }, [dateIso])
 
+  const trimmedStoreUrl = String(storeVideoUrl || '').trim()
+
   return (
     <div className="space-y-10">
+      {trimmedStoreUrl ? (
+        <Card className="overflow-hidden border border-gray-200 bg-white shadow-sm">
+          <CardHeader className="pb-2 pt-4">
+            <CardTitle className="text-base font-semibold text-black">Трансляция (URL магазина)</CardTitle>
+            <CardDescription>
+              Ссылка из настроек точки. Для YouTube вставьте ссылку просмотра, не RTMP-адрес публикации.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pb-4">
+            <VideoUrlEmbed url={trimmedStoreUrl} />
+          </CardContent>
+        </Card>
+      ) : null}
+
       <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex items-start gap-3">
           <div className="rounded-xl bg-slate-50 p-2">
