@@ -1,29 +1,65 @@
 /**
  * Рендер полной новости с учётом layout_type (как на публичной странице, так и в превью админки).
  */
+function extractYouTubeVideoId(rawUrl) {
+  const value = String(rawUrl || '').trim()
+  if (!value) return null
+  try {
+    const u = new URL(value)
+    const host = u.hostname.replace(/^www\./i, '').toLowerCase()
+
+    if (host === 'youtu.be') {
+      const id = u.pathname.split('/').filter(Boolean)[0]
+      return id || null
+    }
+
+    if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
+      if (u.searchParams.get('v')) return u.searchParams.get('v')
+      const [first, second] = u.pathname.split('/').filter(Boolean)
+      if (first === 'embed' || first === 'live' || first === 'shorts') return second || null
+    }
+  } catch {
+    // Ignore parsing errors and fall back to regex below.
+  }
+
+  const fallback = value.match(
+    /(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|live\/|shorts\/))([\w-]{8,})/i
+  )
+  return fallback?.[1] || null
+}
+
 function VideoBlock({ url }) {
-  if (!url?.trim()) return null
-  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/)
-  if (yt) {
+  const value = String(url || '').trim()
+  if (!value) return null
+  if (/^rtmp:\/\//i.test(value)) {
+    return (
+      <p className="text-sm text-slate-500">
+        Указан RTMP-адрес публикации. Для отображения на сайте вставьте ссылку просмотра YouTube
+        (например, `https://www.youtube.com/watch?v=...` или `https://www.youtube.com/live/...`).
+      </p>
+    )
+  }
+  const ytId = extractYouTubeVideoId(value)
+  if (ytId) {
     return (
       <div className="aspect-video w-full overflow-hidden rounded-xl bg-black shadow-sm ring-1 ring-black/5">
         <iframe
           title="Видео"
           className="h-full w-full"
-          src={`https://www.youtube.com/embed/${yt[1]}`}
+          src={`https://www.youtube.com/embed/${ytId}`}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
         />
       </div>
     )
   }
-  if (/\.(mp4|webm|ogg)(\?|$)/i.test(url) || url.startsWith('blob:') || url.startsWith('/uploads/')) {
+  if (/\.(mp4|webm|ogg)(\?|$)/i.test(value) || value.startsWith('blob:') || value.startsWith('/uploads/')) {
     return (
       <video
         className="w-full rounded-xl shadow-sm ring-1 ring-black/5"
         controls
         playsInline
-        src={url}
+        src={value}
       >
         <track kind="captions" />
       </video>
@@ -32,7 +68,7 @@ function VideoBlock({ url }) {
   return (
     <p className="text-sm text-slate-500">
       Видео:{' '}
-      <a href={url} className="text-[#E41C2A] underline" target="_blank" rel="noreferrer">
+      <a href={value} className="text-[#E41C2A] underline" target="_blank" rel="noreferrer">
         открыть ссылку
       </a>
     </p>
