@@ -42,9 +42,18 @@ const SETTINGS_NAV = [
 ]
 
 const inputClass =
-  'min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] text-black shadow-sm outline-none transition-colors placeholder:text-slate-400 focus:border-slate-300 focus:ring-1 focus:ring-slate-200'
+  'w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition-colors placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-200/70'
 
 const ROLE_SECTIONS = ['overview', 'video', 'finance', 'traffic', 'planogram', 'reports']
+
+const ROLE_SECTION_LABELS = {
+  overview: 'Обзор',
+  video: 'Видео',
+  finance: 'Финансы',
+  traffic: 'Трафик',
+  planogram: 'Планограмма',
+  reports: 'Отчёты',
+}
 
 function connectionStatus(row) {
   const a = String(row.videoUrl ?? '').trim()
@@ -59,6 +68,24 @@ function SettingsRow({ label, children }) {
     <div className="flex flex-col gap-2 border-b border-slate-100 py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:py-2.5">
       <span className="shrink-0 text-[13px] text-slate-600">{label}</span>
       <div className="flex min-w-0 flex-1 justify-end sm:max-w-md">{children}</div>
+    </div>
+  )
+}
+
+/**
+ * Поле формы с лейблом сверху и ограниченной шириной контрола.
+ * По умолчанию контрол имеет max-w-md (не растягивается на весь блок).
+ */
+function Field({ label, htmlFor, hint, className = '', children }) {
+  return (
+    <div className={cn('space-y-1.5', className)}>
+      {label && (
+        <label htmlFor={htmlFor} className="block text-[13px] font-medium text-slate-700">
+          {label}
+        </label>
+      )}
+      <div className="max-w-md">{children}</div>
+      {hint && <p className="text-xs text-slate-400">{hint}</p>}
     </div>
   )
 }
@@ -300,7 +327,7 @@ export default function ApiSettingsWorkspace() {
         className="flex min-h-0 shrink-0 flex-col border-r border-slate-100 bg-white/80 py-4 backdrop-blur-md transition-[width] duration-200 ease-out"
         aria-label="Категории настроек"
       >
-          <nav className="flex max-h-[calc(100vh-8rem)] flex-1 flex-col gap-0.5 overflow-y-auto px-2">
+          <nav className="flex max-h-[calc(100vh-8rem)] flex-1 flex-col gap-1 overflow-y-auto px-2">
             {SETTINGS_NAV.map(({ id, label, Icon }) => {
               const isActive = active === id
               return (
@@ -310,14 +337,29 @@ export default function ApiSettingsWorkspace() {
                   title={collapsed ? label : undefined}
                   onClick={() => setActive(id)}
                   className={cn(
-                    'flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition-colors',
+                    'group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-all',
                     collapsed && 'justify-center px-0',
                     isActive
-                      ? 'bg-white text-black shadow-sm ring-1 ring-slate-100'
-                      : 'text-slate-600 hover:bg-white/80 hover:text-black'
+                      ? 'bg-[#FEF2F2] text-[#E41C2A] shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   )}
                 >
-                  <Icon className="size-[18px] shrink-0 text-slate-600" strokeWidth={1.5} aria-hidden />
+                  {/* Яркая красная полоса слева для активного пункта */}
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full transition-all',
+                      isActive ? 'bg-[#E41C2A]' : 'bg-transparent'
+                    )}
+                  />
+                  <Icon
+                    className={cn(
+                      'size-[18px] shrink-0 transition-colors',
+                      isActive ? 'text-[#E41C2A]' : 'text-slate-500 group-hover:text-slate-700'
+                    )}
+                    strokeWidth={1.5}
+                    aria-hidden
+                  />
                   {!collapsed && <span className="truncate">{label}</span>}
                   {collapsed && <span className="sr-only">{label}</span>}
                 </button>
@@ -343,34 +385,45 @@ export default function ApiSettingsWorkspace() {
         </aside>
 
         {/* SidebarInset: контент не перекрывается — flex-сосед с фикс. шириной сайдбара */}
-        <div className="min-w-0 flex-1 bg-white">
-          <div className="mx-auto max-w-3xl px-6 py-8 md:px-10 md:py-10">
+        <div className="min-w-0 flex-1 bg-slate-50/50">
+          <div className="mx-auto max-w-4xl px-6 py-10 md:px-10 md:py-12">
             {active === 'general' && (
-              <section className="space-y-6">
-                <header className="space-y-1">
-                  <h2 className="text-lg font-semibold tracking-[-0.02em] text-black">
+              <section className="space-y-8">
+                <header className="space-y-2">
+                  <h1 className="text-[28px] font-semibold tracking-[-0.02em] text-slate-900">
                     Общие настройки
-                  </h2>
-                  <p className="text-[14px] leading-relaxed text-slate-500">
-                    Выберите торговую точку для быстрого контекста. Все точки доступны в разделах
-                    ниже.
+                  </h1>
+                  <p className="max-w-2xl text-[15px] leading-relaxed text-slate-500">
+                    Управление торговыми точками, инвесторскими учётными записями и ролями доступа.
                   </p>
                 </header>
+
+                {flash && (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-sm">
+                    {flash}
+                  </div>
+                )}
+
+                {/* ── Активная торговая точка ── */}
                 {loadingStores ? (
-                  <div className="h-32 animate-pulse rounded-xl border border-slate-100 bg-white" />
+                  <div className="h-32 animate-pulse rounded-2xl border border-slate-200 bg-white" />
                 ) : (
-                  <Card className="border border-slate-100 bg-white shadow-sm">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-[15px] font-medium text-black">
-                        Торговая точка
+                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <CardHeader className="px-6 pb-4 pt-6">
+                      <CardTitle className="text-lg font-semibold tracking-[-0.01em] text-slate-900">
+                        Активная торговая точка
                       </CardTitle>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Быстрый контекст для видимости модулей инвестора.
+                      </p>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <SettingsRow label="Активная точка">
+                    <CardContent className="space-y-5 px-6 pb-6 pt-0">
+                      <Field label="Точка" htmlFor="active-store">
                         <select
+                          id="active-store"
                           value={selectedStoreId}
                           onChange={(e) => setSelectedStoreId(e.target.value)}
-                          className={cn(inputClass, 'max-w-full cursor-pointer')}
+                          className={cn(inputClass, 'cursor-pointer')}
                         >
                           {stores.map((s) => (
                             <option key={s.id} value={s.id}>
@@ -378,17 +431,17 @@ export default function ApiSettingsWorkspace() {
                             </option>
                           ))}
                         </select>
-                      </SettingsRow>
+                      </Field>
                       {selectedStore && (
-                        <div className="flex items-center gap-2 rounded-lg bg-slate-50/80 px-3 py-2 text-[13px] text-slate-600">
-                          <MapPin className="size-4 shrink-0" strokeWidth={1.5} aria-hidden />
+                        <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-[13px] text-slate-600 ring-1 ring-slate-100">
+                          <MapPin className="size-4 shrink-0 text-slate-500" strokeWidth={1.5} aria-hidden />
                           <span className="font-mono text-xs text-slate-400">{selectedStore.id}</span>
                           <span className="mx-1 text-slate-300">·</span>
                           <span
                             className={
                               connectionStatus(selectedStore) === 'active'
-                                ? 'text-emerald-600'
-                                : 'text-amber-600'
+                                ? 'font-medium text-emerald-600'
+                                : 'font-medium text-amber-600'
                             }
                           >
                             {connectionStatus(selectedStore) === 'active'
@@ -397,248 +450,406 @@ export default function ApiSettingsWorkspace() {
                           </span>
                         </div>
                       )}
-                      {flash && (
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                          {flash}
-                        </div>
-                      )}
                     </CardContent>
                   </Card>
                 )}
 
+                {/* ── Создать магазин ── */}
                 {!loadingStores && (
-                  <Card className="border border-slate-100 bg-white shadow-sm">
-                    <CardHeader>
-                      <CardTitle className="text-[15px] font-medium text-black">
+                  <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <CardHeader className="px-6 pb-4 pt-6">
+                      <CardTitle className="text-lg font-semibold tracking-[-0.01em] text-slate-900">
                         Создать магазин
                       </CardTitle>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Добавьте новую торговую точку в систему.
+                      </p>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      <input
-                        className={inputClass}
-                        placeholder="Название магазина"
-                        value={newStore.name}
-                        onChange={(e) => setNewStore((p) => ({ ...p, name: e.target.value }))}
-                      />
-                      <input
-                        className={inputClass}
-                        placeholder="Адрес"
-                        value={newStore.address}
-                        onChange={(e) => setNewStore((p) => ({ ...p, address: e.target.value }))}
-                      />
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <input
-                          className={inputClass}
-                          placeholder="Часовой пояс"
-                          value={newStore.timezone}
-                          onChange={(e) => setNewStore((p) => ({ ...p, timezone: e.target.value }))}
-                        />
-                        <input
-                          className={inputClass}
-                          placeholder="Валюта"
-                          value={newStore.currency}
-                          onChange={(e) => setNewStore((p) => ({ ...p, currency: e.target.value }))}
-                        />
+                    <CardContent className="space-y-5 px-6 pb-6 pt-0">
+                      <div className="grid gap-5 sm:grid-cols-2">
+                        <Field label="Название магазина" htmlFor="new-store-name">
+                          <input
+                            id="new-store-name"
+                            className={inputClass}
+                            placeholder="Например, Магазин №1"
+                            value={newStore.name}
+                            onChange={(e) => setNewStore((p) => ({ ...p, name: e.target.value }))}
+                          />
+                        </Field>
+                        <Field label="Адрес" htmlFor="new-store-address">
+                          <input
+                            id="new-store-address"
+                            className={inputClass}
+                            placeholder="г. Алматы, ул. …"
+                            value={newStore.address}
+                            onChange={(e) => setNewStore((p) => ({ ...p, address: e.target.value }))}
+                          />
+                        </Field>
+                        <Field label="Часовой пояс" htmlFor="new-store-tz">
+                          <input
+                            id="new-store-tz"
+                            className={inputClass}
+                            placeholder="Asia/Almaty"
+                            value={newStore.timezone}
+                            onChange={(e) => setNewStore((p) => ({ ...p, timezone: e.target.value }))}
+                          />
+                        </Field>
+                        <Field label="Валюта" htmlFor="new-store-currency">
+                          <input
+                            id="new-store-currency"
+                            className={inputClass}
+                            placeholder="KZT"
+                            value={newStore.currency}
+                            onChange={(e) => setNewStore((p) => ({ ...p, currency: e.target.value }))}
+                          />
+                        </Field>
                       </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={onCreateStore}
-                        disabled={busyCreateStore}
-                        className="bg-[#E41C2A] hover:bg-[#c91822]"
-                      >
-                        {busyCreateStore ? 'Создание…' : 'Создать магазин'}
-                      </Button>
+                      <div className="flex items-center gap-2 border-t border-slate-100 pt-5">
+                        <Button
+                          type="button"
+                          onClick={onCreateStore}
+                          disabled={busyCreateStore}
+                          className="h-10 rounded-lg bg-[#E41C2A] px-5 text-sm font-medium text-white shadow-sm hover:bg-[#c91822] disabled:opacity-60"
+                        >
+                          {busyCreateStore ? 'Создание…' : 'Создать магазин'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 rounded-lg border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                          onClick={() =>
+                            setNewStore({ name: '', address: '', timezone: 'Asia/Almaty', currency: 'KZT' })
+                          }
+                          disabled={busyCreateStore}
+                        >
+                          Очистить
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 )}
 
-                <Card className="border border-slate-100 bg-white shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-[15px] font-medium text-black">
+                {/* ── Инвесторы и доступ ── */}
+                <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <CardHeader className="px-6 pb-4 pt-6">
+                    <CardTitle className="text-lg font-semibold tracking-[-0.01em] text-slate-900">
                       Инвесторы и доступ к магазинам
                     </CardTitle>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Создание учётных записей инвесторов и назначение магазинов.
+                    </p>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid gap-2 sm:grid-cols-4">
-                      <input
-                        className={inputClass}
-                        placeholder="Имя"
-                        value={newInvestor.name}
-                        onChange={(e) => setNewInvestor((p) => ({ ...p, name: e.target.value }))}
-                      />
-                      <input
-                        className={inputClass}
-                        placeholder="Email"
-                        value={newInvestor.email}
-                        onChange={(e) => setNewInvestor((p) => ({ ...p, email: e.target.value }))}
-                      />
-                      <input
-                        className={inputClass}
-                        placeholder="Пароль"
-                        value={newInvestor.password}
-                        onChange={(e) => setNewInvestor((p) => ({ ...p, password: e.target.value }))}
-                      />
-                      <select
-                        className={inputClass}
-                        value={newInvestor.roleId || roles[0]?.id || ''}
-                        onChange={(e) => setNewInvestor((p) => ({ ...p, roleId: e.target.value }))}
-                      >
-                        {roles.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </select>
+                  <CardContent className="space-y-6 px-6 pb-6 pt-0">
+                    {/* Новый инвестор */}
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <Field label="Имя" htmlFor="inv-name">
+                        <input
+                          id="inv-name"
+                          className={inputClass}
+                          placeholder="Иван Иванов"
+                          value={newInvestor.name}
+                          onChange={(e) => setNewInvestor((p) => ({ ...p, name: e.target.value }))}
+                        />
+                      </Field>
+                      <Field label="Email" htmlFor="inv-email">
+                        <input
+                          id="inv-email"
+                          type="email"
+                          className={inputClass}
+                          placeholder="investor@redprice.kz"
+                          value={newInvestor.email}
+                          onChange={(e) => setNewInvestor((p) => ({ ...p, email: e.target.value }))}
+                        />
+                      </Field>
+                      <Field label="Пароль" htmlFor="inv-pass">
+                        <input
+                          id="inv-pass"
+                          type="password"
+                          className={inputClass}
+                          placeholder="Минимум 6 символов"
+                          value={newInvestor.password}
+                          onChange={(e) => setNewInvestor((p) => ({ ...p, password: e.target.value }))}
+                        />
+                      </Field>
+                      <Field label="Роль" htmlFor="inv-role">
+                        <select
+                          id="inv-role"
+                          className={cn(inputClass, 'cursor-pointer')}
+                          value={newInvestor.roleId || roles[0]?.id || ''}
+                          onChange={(e) => setNewInvestor((p) => ({ ...p, roleId: e.target.value }))}
+                        >
+                          {roles.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
                     </div>
-                    <Button type="button" size="sm" onClick={onCreateInvestor} disabled={busyCreateInvestor}>
-                      {busyCreateInvestor ? 'Создание…' : 'Создать инвестора'}
-                    </Button>
-                    <div className="space-y-2">
-                      {investors.map((i) => (
-                        <div key={i.id} className="flex flex-col gap-2 rounded-lg border border-slate-100 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="text-[13px] text-slate-700">
-                            <span className="font-medium text-black">{i.name}</span>
-                            <span className="ml-2 text-slate-400">{i.email}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <select
-                              className={cn(inputClass, 'max-w-xs')}
-                              value={i.roleId || ''}
-                              onChange={(e) => onAssignRole(i.id, e.target.value)}
-                              disabled={assignRoleSavingInvestorId === i.id}
-                            >
-                              {roles.map((r) => (
-                                <option key={r.id} value={r.id}>
-                                  {r.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="border-t border-slate-100 pt-5">
+                      <Button
+                        type="button"
+                        onClick={onCreateInvestor}
+                        disabled={busyCreateInvestor}
+                        className="h-10 rounded-lg bg-[#E41C2A] px-5 text-sm font-medium text-white shadow-sm hover:bg-[#c91822] disabled:opacity-60"
+                      >
+                        {busyCreateInvestor ? 'Создание…' : 'Создать инвестора'}
+                      </Button>
                     </div>
 
-                    <div className="space-y-2">
-                      {stores.map((s) => (
-                        <div key={s.id} className="flex flex-col gap-2 rounded-lg border border-slate-100 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="text-[13px] text-slate-700">
-                            <span className="font-medium text-black">{s.name}</span>
-                            <span className="ml-2 font-mono text-xs text-slate-400">{s.id}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <select
-                              className={cn(inputClass, 'max-w-xs')}
-                              value={s.investorId || ''}
-                              onChange={(e) => onAssignInvestor(s.id, e.target.value || null)}
-                              disabled={assignSavingStoreId === s.id}
+                    {/* Список инвесторов */}
+                    {investors.length > 0 && (
+                      <div className="space-y-2 border-t border-slate-100 pt-6">
+                        <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">
+                          Инвесторы ({investors.length})
+                        </p>
+                        <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-slate-50/40">
+                          {investors.map((i) => (
+                            <div
+                              key={i.id}
+                              className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                             >
-                              <option value="">Без инвестора</option>
-                              {investors.map((i) => (
-                                <option key={i.id} value={i.id}>
-                                  {i.name} ({i.email})
-                                </option>
-                              ))}
-                            </select>
-                            {assignSavingStoreId === s.id && <span className="text-xs text-slate-400">…</span>}
-                          </div>
+                              <div className="min-w-0 text-sm">
+                                <p className="truncate font-medium text-slate-900">{i.name}</p>
+                                <p className="truncate text-xs text-slate-500">{i.email}</p>
+                              </div>
+                              <select
+                                className={cn(inputClass, 'max-w-[220px] cursor-pointer')}
+                                value={i.roleId || ''}
+                                onChange={(e) => onAssignRole(i.id, e.target.value)}
+                                disabled={assignRoleSavingInvestorId === i.id}
+                              >
+                                {roles.map((r) => (
+                                  <option key={r.id} value={r.id}>
+                                    {r.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    )}
+
+                    {/* Привязка магазинов к инвесторам */}
+                    {stores.length > 0 && (
+                      <div className="space-y-2 border-t border-slate-100 pt-6">
+                        <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">
+                          Привязка магазинов
+                        </p>
+                        <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-slate-50/40">
+                          {stores.map((s) => (
+                            <div
+                              key={s.id}
+                              className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                              <div className="min-w-0 text-sm">
+                                <p className="truncate font-medium text-slate-900">{s.name}</p>
+                                <p className="truncate font-mono text-[11px] text-slate-400">{s.id}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <select
+                                  className={cn(inputClass, 'max-w-[260px] cursor-pointer')}
+                                  value={s.investorId || ''}
+                                  onChange={(e) => onAssignInvestor(s.id, e.target.value || null)}
+                                  disabled={assignSavingStoreId === s.id}
+                                >
+                                  <option value="">Без инвестора</option>
+                                  {investors.map((i) => (
+                                    <option key={i.id} value={i.id}>
+                                      {i.name} ({i.email})
+                                    </option>
+                                  ))}
+                                </select>
+                                {assignSavingStoreId === s.id && (
+                                  <span className="text-xs text-slate-400">…</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
-                <Card className="border border-slate-100 bg-white shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-[15px] font-medium text-black inline-flex items-center gap-2">
-                      <UserCog className="size-4 text-slate-600" strokeWidth={1.5} aria-hidden />
+                {/* ── Роли инвесторов ── */}
+                <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <CardHeader className="px-6 pb-4 pt-6">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-[-0.01em] text-slate-900">
+                      <UserCog className="size-5 text-slate-700" strokeWidth={1.5} aria-hidden />
                       Роли инвесторов
                     </CardTitle>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Определите набор разделов и привилегий для каждой роли.
+                    </p>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <input
-                        className={inputClass}
-                        placeholder="Название роли"
-                        value={newRole.name}
-                        onChange={(e) => setNewRole((p) => ({ ...p, name: e.target.value }))}
-                      />
-                      <input
-                        className={inputClass}
-                        placeholder="Описание роли"
-                        value={newRole.description}
-                        onChange={(e) => setNewRole((p) => ({ ...p, description: e.target.value }))}
-                      />
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      {ROLE_SECTIONS.map((section) => (
-                        <label key={section} className="inline-flex items-center gap-2 rounded-lg border border-slate-100 px-2 py-1 text-xs text-slate-700">
-                          <input
-                            type="checkbox"
-                            checked={newRole.sections.includes(section)}
-                            onChange={() => toggleRoleSection(section)}
-                          />
-                          {section}
-                        </label>
-                      ))}
-                    </div>
-                    <div className="flex flex-wrap gap-4">
-                      <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                  <CardContent className="space-y-6 px-6 pb-6 pt-0">
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <Field label="Название роли" htmlFor="role-name">
                         <input
-                          type="checkbox"
-                          checked={newRole.canViewStoreSecrets}
-                          onChange={(e) =>
-                            setNewRole((p) => ({ ...p, canViewStoreSecrets: e.target.checked }))
-                          }
+                          id="role-name"
+                          className={inputClass}
+                          placeholder="Например, Аналитик"
+                          value={newRole.name}
+                          onChange={(e) => setNewRole((p) => ({ ...p, name: e.target.value }))}
                         />
-                        Видеть API ключи магазинов
-                      </label>
-                      <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                      </Field>
+                      <Field label="Описание" htmlFor="role-desc">
                         <input
-                          type="checkbox"
-                          checked={newRole.canExportReports}
-                          onChange={(e) =>
-                            setNewRole((p) => ({ ...p, canExportReports: e.target.checked }))
-                          }
+                          id="role-desc"
+                          className={inputClass}
+                          placeholder="Краткое описание прав"
+                          value={newRole.description}
+                          onChange={(e) => setNewRole((p) => ({ ...p, description: e.target.value }))}
                         />
-                        Экспорт отчётов
-                      </label>
+                      </Field>
                     </div>
-                    <Button type="button" size="sm" onClick={onCreateRole} disabled={busyCreateRole}>
-                      {busyCreateRole ? 'Создание…' : 'Создать роль'}
-                    </Button>
 
                     <div className="space-y-2">
-                      {roles.map((r) => (
-                        <div key={r.id} className="rounded-lg border border-slate-100 px-3 py-2">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div>
-                              <p className="text-sm font-medium text-black">{r.name}</p>
-                              {r.description && (
-                                <p className="text-xs text-slate-500">{r.description}</p>
+                      <p className="text-[13px] font-medium text-slate-700">Доступные разделы</p>
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        {ROLE_SECTIONS.map((section) => {
+                          const checked = newRole.sections.includes(section)
+                          return (
+                            <label
+                              key={section}
+                              className={cn(
+                                'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+                                checked
+                                  ? 'border-[#E41C2A]/40 bg-[#FEF2F2] text-[#E41C2A]'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                               )}
-                            </div>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                onPatchRole(r.id, {
-                                  permissions: {
-                                    canExportReports: !r.permissions?.canExportReports,
-                                  },
-                                })
-                              }
                             >
-                              Экспорт: {r.permissions?.canExportReports ? 'ON' : 'OFF'}
-                            </Button>
-                          </div>
-                          <p className="mt-1 text-xs text-slate-400">
-                            Разделы: {(r.permissions?.sections || []).join(', ') || 'нет'}
-                          </p>
-                        </div>
-                      ))}
+                              <input
+                                type="checkbox"
+                                className="accent-[#E41C2A]"
+                                checked={checked}
+                                onChange={() => toggleRoleSection(section)}
+                              />
+                              {ROLE_SECTION_LABELS[section] || section}
+                            </label>
+                          )
+                        })}
+                      </div>
                     </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[13px] font-medium text-slate-700">Привилегии</p>
+                      <div className="flex flex-wrap gap-3">
+                        <label
+                          className={cn(
+                            'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+                            newRole.canViewStoreSecrets
+                              ? 'border-[#E41C2A]/40 bg-[#FEF2F2] text-[#E41C2A]'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            className="accent-[#E41C2A]"
+                            checked={newRole.canViewStoreSecrets}
+                            onChange={(e) =>
+                              setNewRole((p) => ({ ...p, canViewStoreSecrets: e.target.checked }))
+                            }
+                          />
+                          Видеть API-ключи магазинов
+                        </label>
+                        <label
+                          className={cn(
+                            'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+                            newRole.canExportReports
+                              ? 'border-[#E41C2A]/40 bg-[#FEF2F2] text-[#E41C2A]'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            className="accent-[#E41C2A]"
+                            checked={newRole.canExportReports}
+                            onChange={(e) =>
+                              setNewRole((p) => ({ ...p, canExportReports: e.target.checked }))
+                            }
+                          />
+                          Экспорт отчётов
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-5">
+                      <Button
+                        type="button"
+                        onClick={onCreateRole}
+                        disabled={busyCreateRole}
+                        className="h-10 rounded-lg bg-[#E41C2A] px-5 text-sm font-medium text-white shadow-sm hover:bg-[#c91822] disabled:opacity-60"
+                      >
+                        {busyCreateRole ? 'Создание…' : 'Создать роль'}
+                      </Button>
+                    </div>
+
+                    {roles.length > 0 && (
+                      <div className="space-y-2 border-t border-slate-100 pt-6">
+                        <p className="text-[13px] font-semibold uppercase tracking-wide text-slate-500">
+                          Существующие роли ({roles.length})
+                        </p>
+                        <div className="space-y-2">
+                          {roles.map((r) => (
+                            <div
+                              key={r.id}
+                              className="rounded-xl border border-slate-200 bg-slate-50/40 px-4 py-3"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-slate-900">{r.name}</p>
+                                  {r.description && (
+                                    <p className="mt-0.5 text-xs text-slate-500">{r.description}</p>
+                                  )}
+                                </div>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 rounded-lg border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                                  onClick={() =>
+                                    onPatchRole(r.id, {
+                                      permissions: {
+                                        canExportReports: !r.permissions?.canExportReports,
+                                      },
+                                    })
+                                  }
+                                >
+                                  Экспорт:{' '}
+                                  <span
+                                    className={cn(
+                                      'ml-1 font-semibold',
+                                      r.permissions?.canExportReports
+                                        ? 'text-emerald-600'
+                                        : 'text-slate-400'
+                                    )}
+                                  >
+                                    {r.permissions?.canExportReports ? 'ON' : 'OFF'}
+                                  </span>
+                                </Button>
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {(r.permissions?.sections || []).length > 0 ? (
+                                  (r.permissions?.sections || []).map((s) => (
+                                    <span
+                                      key={s}
+                                      className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200"
+                                    >
+                                      {ROLE_SECTION_LABELS[s] || s}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-xs text-slate-400">Разделы не назначены</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </section>

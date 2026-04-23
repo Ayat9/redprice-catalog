@@ -8,7 +8,9 @@ import { Server as SocketIOServer } from 'socket.io'
 import { eslExpressMiddleware } from '../lib/esl-handlers.js'
 import { handleNewsRequest } from '../lib/news-api.js'
 import { handleEslAdminRequest } from '../lib/esl-admin-handlers.js'
+import { handleInvestorSupportRequest } from '../lib/investor-support-handler.js'
 import { getDashboard, getProductsTable, randomizeRuntimeStatus } from '../lib/esl-admin-store.js'
+import { getPublicPriceByMac } from '../lib/esl-catalog-store.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -205,6 +207,14 @@ app.use(async (req, res, next) => {
 
 // 1) Строго JSON
 app.get(['/api/price', '/api/price/'], async (req, res) => {
+  const mac = String(req.query?.mac || '').trim()
+  if (mac) {
+    const out = await getPublicPriceByMac(mac)
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.status(out.status || 200).send(JSON.stringify(out.ok ? out.data : { error: out.error || 'Not found' }))
+    return
+  }
   const data = await readPriceValue()
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -241,6 +251,19 @@ app.post(['/api/update-price', '/api/update-price/'], async (req, res) => {
 })
 
 // Прямое сохранение в /api/price(.json), чтобы админка писала "в него".
+app.post(['/api/investor-support', '/api/investor-support/'], async (req, res) => {
+  try {
+    const out = await handleInvestorSupportRequest(req.body || {})
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.status(out.status || 200).send(out.body)
+  } catch (err) {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.status(500).send(JSON.stringify({ ok: false, error: err?.message || 'Server error' }))
+  }
+})
+
 app.post(
   ['/api/price', '/api/price/', '/api/price.json', '/api/price.json/'],
   async (req, res) => {

@@ -28,12 +28,13 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import ApiSettingsWorkspace from '../components/redprice/admin/ApiSettingsWorkspace'
 import AdminNewsWorkspace from '../components/redprice/admin/AdminNewsWorkspace'
+import SupplierAdminWorkspace from '../components/redprice/admin/SupplierAdminWorkspace'
 import './Admin.css'
 
 const SIDEBAR_W = { expanded: 260, collapsed: 72 }
 const navIc = { className: 'size-[18px] shrink-0 text-slate-500', strokeWidth: 1.5, 'aria-hidden': true }
 
-const VIEWS = { dashboard: 'dashboard', products: 'products', suppliers: 'suppliers', categories: 'categories', newProduct: 'newProduct', newCategory: 'newCategory', newSupplier: 'newSupplier', users: 'users', newUser: 'newUser', statistics: 'statistics', backup: 'backup', apiPanel: 'apiPanel', newsEditor: 'newsEditor' }
+const VIEWS = { dashboard: 'dashboard', products: 'products', suppliers: 'suppliers', categories: 'categories', newProduct: 'newProduct', newCategory: 'newCategory', newSupplier: 'newSupplier', users: 'users', newUser: 'newUser', statistics: 'statistics', backup: 'backup', apiPanel: 'apiPanel', newsEditor: 'newsEditor', supplierPanel: 'supplierPanel' }
 
 /** Каталог в админке — секция хранения `platform`. */
 const ADMIN_CATALOG_SECTION = 'platform'
@@ -68,6 +69,7 @@ export default function Admin() {
     const p = searchParams.get('panel')
     if (p === 'api') setView(VIEWS.apiPanel)
     else if (p === 'news') setView(VIEWS.newsEditor)
+    else if (p === 'suppliers') setView(VIEWS.supplierPanel)
   }, [isLoggedIn, searchParams])
 
   const prevViewRef = useRef(null)
@@ -167,6 +169,7 @@ export default function Admin() {
       [VIEWS.backup]: 'data',
       [VIEWS.apiPanel]: 'data',
       [VIEWS.newsEditor]: 'data',
+      [VIEWS.supplierPanel]: 'data',
     }
     const key = groupByView[view]
     if (key) setSidebarOpen((prev) => ({ ...prev, [key]: true }))
@@ -813,6 +816,15 @@ export default function Admin() {
               <Newspaper {...navIc} />
               {!sidebarCollapsed && <span>Новости (CMS)</span>}
             </button>
+            <button
+              type="button"
+              className={`admin-nav-item ${view === VIEWS.supplierPanel ? 'active' : ''}`}
+              title="Поставщики"
+              onClick={() => setView(VIEWS.supplierPanel)}
+            >
+              <Truck {...navIc} />
+              {!sidebarCollapsed && <span>Поставщики</span>}
+            </button>
           </div>
         </div>
         <div className="admin-sidebar-toolbar">
@@ -849,6 +861,8 @@ export default function Admin() {
           )}
 
           {view === VIEWS.newsEditor && <AdminNewsWorkspace />}
+
+          {view === VIEWS.supplierPanel && <SupplierAdminWorkspace />}
 
           {view === VIEWS.dashboard && (
             <div className="admin-section">

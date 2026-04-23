@@ -4,6 +4,7 @@ import 'react-quill/dist/quill.snow.css'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
+  deleteNewsPost,
   createNewsPost,
   fetchNewsAll,
   newsWriteHeaders,
@@ -196,6 +197,10 @@ export default function AdminNewsWorkspace() {
     }),
     [form]
   )
+  const publishedPosts = useMemo(
+    () => list.filter((p) => p.published).sort((a, b) => String(b.publishedAt || b.createdAt).localeCompare(String(a.publishedAt || a.createdAt))),
+    [list]
+  )
 
   const editPost = (p) => {
     setForm({
@@ -261,6 +266,20 @@ export default function AdminNewsWorkspace() {
     if (data.post?.id) {
       setForm((f) => ({ ...f, id: data.post.id, slug: data.post.slug }))
     }
+    loadList()
+  }
+
+  const handleDeletePost = async (post) => {
+    const ok = window.confirm(`Удалить новость "${post.title}"? Это действие необратимо.`)
+    if (!ok) return
+    setMsg(null)
+    const out = await deleteNewsPost(post.id)
+    if (!out.ok) {
+      setMsg({ type: 'err', text: out.error || 'Не удалось удалить новость' })
+      return
+    }
+    if (form.id === post.id) setForm(emptyForm())
+    setMsg({ type: 'ok', text: 'Новость удалена' })
     loadList()
   }
 
@@ -385,7 +404,7 @@ export default function AdminNewsWorkspace() {
               <input
                 ref={coverInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
+                accept="image/*,.heic,.heif,.avif,.bmp,.tif,.tiff,.svg"
                 className="sr-only"
                 aria-hidden
                 onChange={onPickCover}
@@ -542,6 +561,40 @@ export default function AdminNewsWorkspace() {
             <NewsArticleLayouts post={previewPost} />
           </div>
         </div>
+      </div>
+
+      <div className="mt-8 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm ring-1 ring-slate-900/5">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Опубликованные новости</h3>
+        {loading ? (
+          <p className="text-sm text-slate-500">Загрузка…</p>
+        ) : publishedPosts.length === 0 ? (
+          <p className="text-sm text-slate-500">Опубликованных новостей пока нет.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {publishedPosts.map((p) => (
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                <div>
+                  <span className="font-medium text-slate-900">{p.title}</span>
+                  <span className="ml-2 text-xs text-slate-400">{p.slug}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => editPost(p)}>
+                    Редактировать
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="border-red-200 text-red-700 hover:bg-red-50"
+                    onClick={() => handleDeletePost(p)}
+                  >
+                    Удалить
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="mt-8 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm ring-1 ring-slate-900/5">

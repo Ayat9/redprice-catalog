@@ -8,6 +8,31 @@ const STORE_ID = 'rp-1'
 const SOCKET_ENABLED = !import.meta.env.DEV
 const socket = SOCKET_ENABLED ? io('/', { autoConnect: false, transports: ['websocket', 'polling'] }) : null
 
+function emptyCatalogForm() {
+  return {
+    id: '',
+    name: '',
+    full_name: '',
+    sku: '',
+    cost_price: '',
+    sale_price: '',
+    unit: '',
+    characteristicsText: '',
+    image_url: '',
+    device_mac: '',
+    is_active: true,
+  }
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(new Error('Не удалось прочитать файл'))
+    reader.readAsDataURL(file)
+  })
+}
+
 async function j(url, options) {
   const r = await fetch(url, options)
   const data = await r.json().catch(() => ({}))
@@ -27,6 +52,12 @@ export default function AdminRedisEsl() {
   const [nightMode, setNightMode] = useState({ enabled: false, time: '02:00' })
   const [bind, setBind] = useState({ mac: '', productId: '' })
   const [message, setMessage] = useState('')
+  const [catalogRows, setCatalogRows] = useState([])
+  const [catalogQ, setCatalogQ] = useState('')
+  const [syncPayload, setSyncPayload] = useState('')
+  const [activeSection, setActiveSection] = useState('catalog')
+  const [catalogForm, setCatalogForm] = useState(emptyCatalogForm())
+  const [catalogSaving, setCatalogSaving] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -36,18 +67,20 @@ export default function AdminRedisEsl() {
         j(`/api/v1/esl/admin/products?storeId=${STORE_ID}&discrepancyOnly=${discrepancyOnly ? '1' : '0'}&q=${encodeURIComponent(q)}`),
         j('/api/v1/esl/admin/night-mode'),
       ])
+      const catalog = await j(`/api/v1/esl/admin/catalog?q=${encodeURIComponent(catalogQ)}`)
       setBackend(d.backend || '')
       setDashboard(d.dashboard || {})
       setQueueLength(Number(d.queue || 0))
       setRows(Array.isArray(p.rows) ? p.rows : [])
       setNightMode({ enabled: Boolean(n.enabled), time: n.time || '02:00' })
+      setCatalogRows(Array.isArray(catalog.rows) ? catalog.rows : [])
       if (!bind.productId && p.rows?.[0]?.productId) setBind((x) => ({ ...x, productId: p.rows[0].productId }))
     } catch (e) {
       setMessage(e?.message || 'Ошибка загрузки')
     } finally {
       setLoading(false)
     }
-  }, [bind.productId, discrepancyOnly, q])
+  }, [bind.productId, discrepancyOnly, q, catalogQ])
 
   useEffect(() => {
     if (!isLoggedIn) return
@@ -154,6 +187,106 @@ export default function AdminRedisEsl() {
     load()
   }
 
+  async function saveCatalogField(id, payload) {
+    await j('/api/v1/esl/admin/catalog/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...payload }),
+    })
+    setMessage('Номенклатура обновлена')
+    load()
+  }
+
+  async function runSync1C() {
+    let items = []
+    try {
+      items = JSON.parse(syncPayload || '[]')
+    } catch {
+      setMessage('JSON для синхронизации некорректный')
+      return
+    }
+    const out = await j('/api/v1/esl/admin/catalog/sync-1c', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items }),
+    })
+    setMessage(`Синхронизация 1С: создано ${out.created || 0}, обновлено ${out.updated || 0}`)
+    load()
+  }
+
+  function loadProductToForm(row) {
+    setCatalogForm({
+      id: row.id,
+      name: row.name || '',
+      full_name: row.full_name || '',
+      sku: row.sku || '',
+      cost_price: row.cost_price || '',
+      sale_price: row.sale_price || '',
+      unit: row.unit || '',
+      characteristicsText: row.characteristics ? JSON.stringify(row.characteristics, null, 2) : '',
+      image_url: row.image_url || '',
+      device_mac: row.device_mac || '',
+      is_active: Boolean(row.is_active),
+    })
+    setActiveSection('catalog')
+  }
+
+  function resetCatalogForm() {
+    setCatalogForm(emptyCatalogForm())
+  }
+
+  async function uploadCatalogImage(file) {
+    const dataUrl = await readFileAsDataUrl(file)
+    const out = await j('/api/v1/esl/admin/catalog/upload-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataUrl, filename: file.name }),
+    })
+    if (!out.ok || !out.url) throw new Error(out.error || 'Не удалось загрузить изображение')
+    setCatalogForm((prev) => ({ ...prev, image_url: out.url }))
+    setMessage('Фото загружено')
+  }
+
+  async function saveCatalogForm(e) {
+    e.preventDefault()
+    setCatalogSaving(true)
+    try {
+      let characteristics = null
+      if (catalogForm.characteristicsText.trim()) {
+        characteristics = JSON.parse(catalogForm.characteristicsText)
+      }
+      const payload = {
+        ...catalogForm,
+        characteristics,
+      }
+      const url = catalogForm.id ? '/api/v1/esl/admin/catalog/edit' : '/api/v1/esl/admin/catalog/create'
+      await j(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      setMessage(catalogForm.id ? 'Товар обновлен' : 'Товар создан')
+      if (!catalogForm.id) resetCatalogForm()
+      await load()
+    } catch (err) {
+      setMessage(err?.message || 'Ошибка сохранения товара')
+    } finally {
+      setCatalogSaving(false)
+    }
+  }
+
+  async function removeCatalogProduct(id) {
+    if (!window.confirm('Удалить товар? Действие необратимо.')) return
+    await j('/api/v1/esl/admin/catalog/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    setMessage('Товар удален')
+    if (catalogForm.id === id) resetCatalogForm()
+    load()
+  }
+
   if (!isLoggedIn) {
     return (
       <div className="admin-page p-6">
@@ -164,14 +297,36 @@ export default function AdminRedisEsl() {
 
   return (
     <div className="admin-page p-4 md:p-6">
-      <div className="mx-auto max-w-[1400px] space-y-5">
+      <div className="mx-auto grid max-w-[1540px] gap-5 lg:grid-cols-[250px_1fr]">
+        <aside className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <p className="px-2 pb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Price Admin Panel</p>
+          <div className="grid gap-1.5">
+            <NavItem label="База товаров" subtitle="Номенклатура 1С" active={activeSection === 'catalog'} onClick={() => setActiveSection('catalog')} />
+            <NavItem label="ESL Дашборд" active={activeSection === 'dashboard'} onClick={() => setActiveSection('dashboard')} />
+            <NavItem label="Привязка MAC" active={activeSection === 'binding'} onClick={() => setActiveSection('binding')} />
+            <NavItem label="Синхронизация 1С" active={activeSection === 'sync'} onClick={() => setActiveSection('sync')} />
+          </div>
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            Backend: {backend || '—'}<br />
+            Store: {STORE_ID}
+          </div>
+        </aside>
+
+        <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold text-slate-900">ESL Device Dashboard</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">
+            {activeSection === 'catalog' && 'База товаров (номенклатура)'}
+            {activeSection === 'dashboard' && 'ESL Device Dashboard'}
+            {activeSection === 'binding' && 'Привязка MAC к товарам'}
+            {activeSection === 'sync' && 'Синхронизация из 1С'}
+          </h1>
           <div className="text-xs text-slate-500">Backend: {backend || '—'} · store: {STORE_ID}</div>
         </div>
 
         {message && <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{message}</div>}
 
+        {activeSection !== 'catalog' && (
+        <>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <Kpi label="Всего устройств" value={dashboard.total} />
           <Kpi label="Online" value={dashboard.online} tone="emerald" />
@@ -187,7 +342,10 @@ export default function AdminRedisEsl() {
           </div>
           <div className="mt-1 text-xs text-slate-500">{dashboard.wifiLoad || 0}%</div>
         </div>
+        </>
+        )}
 
+        {activeSection !== 'catalog' && (
         <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -280,8 +438,155 @@ export default function AdminRedisEsl() {
             </div>
           </div>
         </div>
+        )}
+
+        {activeSection === 'catalog' && (
+        <div className="grid gap-4 xl:grid-cols-[1.2fr_2fr]">
+          <form onSubmit={saveCatalogForm} className="order-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:order-1">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-900">{catalogForm.id ? 'Редактирование товара' : 'Создание товара'}</h3>
+              {catalogForm.id && (
+                <button type="button" className="rounded border border-slate-200 px-2 py-1 text-xs" onClick={resetCatalogForm}>
+                  Новый товар
+                </button>
+              )}
+            </div>
+            <div className="grid gap-2 text-sm">
+              <input className="rounded border border-slate-200 px-3 py-2" placeholder="name" value={catalogForm.name} onChange={(e) => setCatalogForm((x) => ({ ...x, name: e.target.value }))} required />
+              <textarea className="min-h-[70px] rounded border border-slate-200 px-3 py-2" placeholder="full_name" value={catalogForm.full_name} onChange={(e) => setCatalogForm((x) => ({ ...x, full_name: e.target.value }))} />
+              <input className="rounded border border-slate-200 px-3 py-2 font-mono" placeholder="sku" value={catalogForm.sku} onChange={(e) => setCatalogForm((x) => ({ ...x, sku: e.target.value }))} required />
+              <div className="grid grid-cols-2 gap-2">
+                <input className="rounded border border-slate-200 px-3 py-2" placeholder="cost_price" value={catalogForm.cost_price} onChange={(e) => setCatalogForm((x) => ({ ...x, cost_price: e.target.value }))} />
+                <input className="rounded border border-slate-200 px-3 py-2" placeholder="sale_price" value={catalogForm.sale_price} onChange={(e) => setCatalogForm((x) => ({ ...x, sale_price: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input className="rounded border border-slate-200 px-3 py-2" placeholder="unit (шт, кг...)" value={catalogForm.unit} onChange={(e) => setCatalogForm((x) => ({ ...x, unit: e.target.value }))} />
+                <input className="rounded border border-slate-200 px-3 py-2 font-mono" placeholder="device_mac (AABBCCDDEEFF)" value={catalogForm.device_mac} onChange={(e) => setCatalogForm((x) => ({ ...x, device_mac: e.target.value.toUpperCase() }))} />
+              </div>
+              <input className="rounded border border-slate-200 px-3 py-2" placeholder="image_url" value={catalogForm.image_url} onChange={(e) => setCatalogForm((x) => ({ ...x, image_url: e.target.value }))} />
+              <label className="rounded border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-600">
+                Загрузить фото
+                <input
+                  type="file"
+                  accept="image/*,.heic,.heif,.avif,.bmp,.tif,.tiff,.svg"
+                  className="mt-1 block w-full text-xs"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    try {
+                      await uploadCatalogImage(file)
+                    } catch (err) {
+                      setMessage(err?.message || 'Ошибка загрузки фото')
+                    } finally {
+                      e.target.value = ''
+                    }
+                  }}
+                />
+              </label>
+              <textarea className="min-h-[90px] rounded border border-slate-200 px-3 py-2 font-mono text-xs" placeholder='characteristics JSON, напр. {"color":"red","size":"M"}' value={catalogForm.characteristicsText} onChange={(e) => setCatalogForm((x) => ({ ...x, characteristicsText: e.target.value }))} />
+              <label className="inline-flex items-center gap-2 text-xs text-slate-600">
+                <input type="checkbox" checked={catalogForm.is_active} onChange={(e) => setCatalogForm((x) => ({ ...x, is_active: e.target.checked }))} />
+                Активный товар
+              </label>
+              <button type="submit" className="btn-save" disabled={catalogSaving}>
+                {catalogSaving ? 'Сохранение...' : catalogForm.id ? 'Сохранить изменения' : 'Создать товар'}
+              </button>
+            </div>
+          </form>
+
+          <div className="order-1 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:order-2">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Список товаров в базе</h3>
+                <p className="text-xs text-slate-500">Всего записей: {catalogRows.length}</p>
+              </div>
+              <input
+                className="min-w-[260px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Поиск по name / full_name / SKU / MAC"
+                value={catalogQ}
+                onChange={(e) => setCatalogQ(e.target.value)}
+              />
+              <button type="button" className="btn-save" onClick={load}>Обновить</button>
+            </div>
+            {catalogRows.length === 0 && (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                Список пустой. Если вы только что создали товар — проверьте, что в <code className="rounded bg-white px-1">.env</code> задан{' '}
+                <code className="rounded bg-white px-1">DATABASE_URL</code>, выполнены миграции Prisma и страница обновлена. Без БД товары не сохраняются в PostgreSQL.
+              </div>
+            )}
+            <div className="max-h-[720px] overflow-auto">
+              <table className="min-w-full text-xs">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="border-b border-slate-200 text-left text-slate-500">
+                    <th className="py-2 pr-3">Фото</th>
+                    <th className="py-2 pr-3">name</th>
+                    <th className="py-2 pr-3">sku</th>
+                    <th className="py-2 pr-3">sale_price</th>
+                    <th className="py-2 pr-3">device_mac</th>
+                    <th className="py-2 pr-3">Действия</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {catalogRows.map((r) => (
+                    <tr key={r.id} className="border-b border-slate-100 align-top">
+                      <td className="py-2 pr-3">{r.image_url ? <img src={r.image_url} alt="" className="h-10 w-10 rounded object-cover" /> : <div className="h-10 w-10 rounded bg-slate-100" />}</td>
+                      <td className="py-2 pr-3">
+                        <div className="font-medium text-slate-900">{r.name}</div>
+                        <div className="max-w-[240px] truncate text-slate-500">{r.full_name}</div>
+                      </td>
+                      <td className="py-2 pr-3 font-mono">{r.sku}</td>
+                      <td className="py-2 pr-3">{r.sale_price}</td>
+                      <td className="py-2 pr-3 font-mono">{r.device_mac || '—'}</td>
+                      <td className="py-2 pr-3">
+                        <div className="flex gap-1">
+                          <button type="button" className="rounded border border-slate-200 px-2 py-1 text-xs" onClick={() => loadProductToForm(r)}>Редактировать</button>
+                          <button type="button" className="rounded border border-red-200 px-2 py-1 text-xs text-red-700" onClick={() => removeCatalogProduct(r.id)}>Удалить</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        )}
+
+        {activeSection === 'sync' && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold text-slate-900">Синхронизация номенклатуры из 1С</h3>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p className="mb-2 text-xs font-semibold text-slate-700">Синхронизация из 1С (POST массив по sku)</p>
+            <textarea
+              className="min-h-[96px] w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-xs"
+              placeholder='[{"sku":"ART-001","name":"Товар","sale_price":"1990","cost_price":"1200","unit":"шт","characteristics":{"color":"black"},"image_url":"https://..."}]'
+              value={syncPayload}
+              onChange={(e) => setSyncPayload(e.target.value)}
+            />
+            <div className="mt-2 flex justify-end">
+              <button type="button" className="btn-save" onClick={runSync1C}>Применить sync 1С</button>
+            </div>
+          </div>
+        </div>
+        )}
+      </div>
       </div>
     </div>
+  )
+}
+
+function NavItem({ label, subtitle, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition ${active ? 'bg-[#E41C2A] text-white' : 'text-slate-700 hover:bg-slate-100'}`}
+    >
+      <span className="block font-medium">{label}</span>
+      {subtitle ? <span className={`block text-xs ${active ? 'text-white/80' : 'text-slate-500'}`}>{subtitle}</span> : null}
+    </button>
   )
 }
 
@@ -312,6 +617,31 @@ function EditablePrice({ value, onSave }) {
       <input className="w-20 rounded border border-slate-200 px-2 py-1 text-xs" value={local} onChange={(e) => setLocal(e.target.value)} />
       <button type="button" className="rounded border border-slate-200 px-1 py-1 text-xs" onClick={() => { onSave(local); setEditing(false) }}>OK</button>
       <button type="button" className="rounded border border-slate-200 px-1 py-1 text-xs" onClick={() => { setLocal(value); setEditing(false) }}>×</button>
+    </div>
+  )
+}
+
+function EditableText({ value, onSave, placeholder = '' }) {
+  const [editing, setEditing] = useState(false)
+  const [local, setLocal] = useState(value || '')
+  useEffect(() => setLocal(value || ''), [value])
+  if (!editing) {
+    return (
+      <button type="button" className="rounded border border-slate-200 px-2 py-1 font-mono text-xs" onClick={() => setEditing(true)}>
+        {value || '—'}
+      </button>
+    )
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        className="w-32 rounded border border-slate-200 px-2 py-1 font-mono text-xs"
+        value={local}
+        placeholder={placeholder}
+        onChange={(e) => setLocal(e.target.value)}
+      />
+      <button type="button" className="rounded border border-slate-200 px-1 py-1 text-xs" onClick={() => { onSave(local); setEditing(false) }}>OK</button>
+      <button type="button" className="rounded border border-slate-200 px-1 py-1 text-xs" onClick={() => { setLocal(value || ''); setEditing(false) }}>×</button>
     </div>
   )
 }

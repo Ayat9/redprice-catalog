@@ -6,11 +6,16 @@ import { SuppliersProvider } from './context/SuppliersContext'
 import { OrdersProvider } from './context/OrdersContext'
 import { AdminAuthProvider } from './context/AdminAuthContext'
 import { StatsProvider } from './context/StatsContext'
+import { SessionProvider } from './context/SessionContext'
 import Admin from './pages/Admin'
 import AdminSetPassword from './pages/AdminSetPassword'
 import AdminCennik from './pages/AdminCennik'
 import AdminRedisEsl from './pages/AdminRedisEsl'
 import InvestorPage from './app/(redprice)/InvestorPage'
+import SupplierPage from './app/(supplier)/SupplierPage'
+import SupplierLoginPage from './app/(supplier)/SupplierLoginPage'
+import { ProtectedRoute } from './components/auth/ProtectedRoute'
+import Home from './pages/Home'
 import NewsFeed from './pages/NewsFeed'
 import NewsArticle from './pages/NewsArticle'
 import './tailwind.css'
@@ -24,9 +29,10 @@ function App() {
     <CategoriesProvider>
     <OrdersProvider>
     <ProductsProvider>
+    <SessionProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<NewsFeed />} />
+          <Route path="/" element={<Home />} />
           <Route path="/opt" element={<Navigate to="/" replace />} />
           <Route path="/zakup" element={<Navigate to="/" replace />} />
           <Route path="/admin" element={<Admin />} />
@@ -34,12 +40,22 @@ function App() {
           <Route path="/admin/cennik" element={<AdminCennik />} />
           <Route path="/admin/redis-esl" element={<AdminRedisEsl />} />
           <Route path="/investor" element={<InvestorPage />} />
+          <Route path="/supplier/login" element={<SupplierLoginPage />} />
+          <Route
+            path="/supplier"
+            element={
+              <ProtectedRoute roles={['SUPPLIER']}>
+                <SupplierPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/news" element={<NewsFeed />} />
           <Route path="/news/:slug" element={<NewsArticle />} />
           <Route path="/admin-panel" element={<Navigate to="/admin?panel=api" replace />} />
           <Route path="/admin/news-editor" element={<Navigate to="/admin?panel=news" replace />} />
         </Routes>
       </BrowserRouter>
+    </SessionProvider>
     </ProductsProvider>
     </OrdersProvider>
     </CategoriesProvider>

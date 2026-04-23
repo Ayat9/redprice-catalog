@@ -7,6 +7,8 @@ import {
   Menu,
   PanelLeftClose,
   PanelRightOpen,
+  KeyRound,
+  Headset,
 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -14,8 +16,8 @@ import { INVESTOR_SECTIONS } from '@/components/redprice/investorNavConfig'
 import { cn } from '@/lib/utils'
 
 /** Ширина сайдбара в духе TailAdmin (~290px развёрнутый). */
-const EXPANDED_W = 290
-const COLLAPSED_W = 92
+const EXPANDED_W = 252
+const COLLAPSED_W = 74
 
 const iconProps = {
   strokeWidth: 1.5,
@@ -50,7 +52,11 @@ export function InvestorDashboardLayout({
   onSectionChange,
   availableSectionIds,
   investorName = 'ИП',
+  investorEmail = '',
+  investorRoleLabel = 'Investor',
   onLogout,
+  onOpenPasswordReset,
+  onOpenSupport,
 }) {
   const [refreshing, setRefreshing] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -128,7 +134,7 @@ export function InvestorDashboardLayout({
               title={narrow ? label : undefined}
               onClick={() => handleSectionChange(id)}
               className={cn(
-                'group flex w-full items-center rounded-lg text-left text-[13px] font-medium tracking-tight transition-colors',
+                'group flex w-full items-center rounded-lg text-left text-[12px] font-medium tracking-tight transition-colors',
                 narrow ? 'justify-center px-0 py-3' : 'gap-3 px-3 py-3',
                 active
                   ? 'bg-white/10 text-white shadow-sm ring-1 ring-white/10'
@@ -143,7 +149,7 @@ export function InvestorDashboardLayout({
         })}
       </nav>
 
-      <div className={cn('mt-auto space-y-1 border-t border-white/10 pt-6', !narrow && '')}>
+      <div className={cn('mt-auto space-y-1 border-t border-white/10 pt-4', !narrow && '')}>
         <Link
           to="/admin?panel=api"
           title={narrow ? 'Панель API' : undefined}
@@ -248,7 +254,7 @@ export function InvestorDashboardLayout({
                 </div>
               </div>
 
-              <div className="flex shrink-0 flex-wrap items-center gap-3 pl-0 md:pl-2">
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 pl-0 md:pl-2">
                 <Avatar className="size-11 rounded-lg border border-gray-200 bg-white shadow-sm">
                   <AvatarFallback className="rounded-lg text-[15px] font-semibold tracking-tight text-gray-800">
                     {String(investorName || 'ИП')
@@ -259,6 +265,11 @@ export function InvestorDashboardLayout({
                       .toUpperCase() || 'ИП'}
                   </AvatarFallback>
                 </Avatar>
+                <div className="min-w-[170px] space-y-0.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-right shadow-sm">
+                  <p className="truncate text-[13px] font-semibold text-gray-900">{investorName || 'Инвестор'}</p>
+                  <p className="truncate text-[11px] text-gray-500">{investorEmail || 'email не указан'}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-emerald-600">{investorRoleLabel || 'Investor'}</p>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -274,6 +285,30 @@ export function InvestorDashboardLayout({
                   />
                   Обновить данные
                 </Button>
+                {onOpenPasswordReset && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-10 rounded-lg border-gray-200 bg-white px-4 text-gray-800 shadow-sm hover:bg-gray-50"
+                    onClick={onOpenPasswordReset}
+                  >
+                    <KeyRound className="mr-1.5 size-4" strokeWidth={1.5} aria-hidden />
+                    Сброс пароля
+                  </Button>
+                )}
+                {onOpenSupport && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-10 rounded-lg border-gray-200 bg-white px-4 text-gray-800 shadow-sm hover:bg-gray-50"
+                    onClick={onOpenSupport}
+                  >
+                    <Headset className="mr-1.5 size-4" strokeWidth={1.5} aria-hidden />
+                    Техподдержка AI
+                  </Button>
+                )}
                 {onLogout && (
                   <Button
                     type="button"

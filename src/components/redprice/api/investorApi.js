@@ -2,7 +2,7 @@
  * RedPrice Group — инвесторский API.
  * Заглушки без демо-цифр; подключите реальный fetch.
  */
-import { loadAccessData } from './storeAccessStorage'
+import { loadAccessData, saveAccessData } from './storeAccessStorage'
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms))
 const SESSION_KEY = 'redprice_investor_session_v1'
@@ -138,6 +138,47 @@ export async function loginInvestor(email, password) {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session))
   } catch (_) {}
   return { ok: true, session }
+}
+
+/**
+ * Смена пароля для текущей сессии (инвестор из storeAccessStorage или админ из redprice_admin_users).
+ */
+export async function changeInvestorPassword({ oldPassword, newPassword, session }) {
+  await delay(80)
+  if (!session?.email) return { ok: false, error: 'Нет активной сессии' }
+  const em = String(session.email).trim().toLowerCase()
+  const oldPw = String(oldPassword || '')
+  const newPw = String(newPassword || '')
+
+  if (newPw.length < 6) return { ok: false, error: 'Новый пароль не короче 6 символов' }
+
+  const isAdmin = session.isAdmin === true || session.investorId === '__admin__'
+
+  if (isAdmin) {
+    try {
+      const raw = localStorage.getItem(ADMIN_USERS_KEY)
+      const users = raw ? JSON.parse(raw) : []
+      if (!Array.isArray(users)) return { ok: false, error: 'Не удалось прочитать учётные записи' }
+      const idx = users.findIndex((u) => String(u?.email || '').toLowerCase() === em)
+      if (idx < 0) return { ok: false, error: 'Учётная запись не найдена' }
+      if (String(users[idx].password || '') !== oldPw) return { ok: false, error: 'Неверный текущий пароль' }
+      users[idx] = { ...users[idx], password: newPw }
+      localStorage.setItem(ADMIN_USERS_KEY, JSON.stringify(users))
+      return { ok: true }
+    } catch (_) {
+      return { ok: false, error: 'Ошибка сохранения пароля' }
+    }
+  }
+
+  const data = loadAccessData()
+  const investor = data.investors.find(
+    (i) => i.id === session.investorId && String(i.email || '').toLowerCase() === em
+  )
+  if (!investor) return { ok: false, error: 'Инвестор не найден' }
+  if (String(investor.password || '') !== oldPw) return { ok: false, error: 'Неверный текущий пароль' }
+  investor.password = newPw
+  saveAccessData(data)
+  return { ok: true }
 }
 
 export async function fetchInvestorAccessContext(investorId) {

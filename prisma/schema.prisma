@@ -15,6 +15,7 @@ datasource db {
 enum UserRole {
   ADMIN
   INVESTOR
+  SUPPLIER
   PROCUREMENT // отдел закупа
   CONTENT // редактор блога
   READER
@@ -32,6 +33,7 @@ model User {
   updatedAt    DateTime  @updatedAt
 
   investorProfile Investor?
+  supplierProfile SupplierProfile?
   blogPostsWritten BlogPost[] @relation("BlogAuthor")
   priceJobsCreated PriceChangeJob[]
 }
@@ -67,6 +69,7 @@ model Store {
   priceChangeJobs   PriceChangeJob[]
   eslSchedules      EslDisplaySchedule[]
   integrationEvents IntegrationSyncLog[]
+  cameraAssignments CameraAssignment[]
 }
 
 /// Связь Investor_ID ↔ Store_ID (много-ко-многим)
@@ -91,9 +94,17 @@ model InvestorStore {
 /// Глобальная номенклатура (1С / каталог)
 model Product {
   id          String   @id @default(cuid())
-  /// Идентификатор номенклатуры в 1С
-  sku1c       String?  @unique
-  name        String
+  /// Артикул / ключ синхронизации из 1С
+  sku         String   @unique
+  name        String   @db.VarChar(255)
+  fullName    String?  @map("full_name") @db.Text
+  costPrice   Decimal? @map("cost_price") @db.Decimal(10, 2)
+  salePrice   Decimal? @map("sale_price") @db.Decimal(10, 2)
+  unit        String?  @db.VarChar(20)
+  characteristics Json?
+  imageUrl    String?  @map("image_url") @db.VarChar(500)
+  /// MAC ESP32 в формате AABBCCDDEEFF
+  deviceMac   String?  @map("device_mac") @db.VarChar(12)
   article     String?
   barcode     String?
   categoryId  String?
@@ -109,6 +120,7 @@ model Product {
   priceJobs      PriceChangeJob[]
 
   @@index([supplierId])
+  @@index([deviceMac])
 }
 
 model Category {
@@ -249,12 +261,28 @@ model BlogPost {
 
   authorId      String?
   author        User?     @relation("BlogAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  comments      BlogComment[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   @@index([published, publishedAt])
   @@index([category])
+}
+
+/// Комментарии посетителей под новостями.
+model BlogComment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    String
+  body      String   @db.Text
+  approved  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([postId, createdAt])
+  @@index([approved, createdAt])
 }
 
 // ——— Поставщики (связь с закупом; расширение под 1С) ———
@@ -269,4 +297,113 @@ model Supplier {
   updatedAt DateTime @updatedAt
 
   products Product[]
+  profiles SupplierProfile[]
+  /// Порог ротации «неликвида» в днях без продаж (NULL — использовать глобальный)
+  rotationThresholdDays Int?
+}
+
+/// Личный кабинет поставщика — связь User ↔ Supplier (бренд) + права.
+model SupplierProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  supplierId   String
+  supplier     Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  displayName  String?
+  isActive     Boolean  @default(true)
+  /// Флажки видимости модулей кабинета поставщика
+  canViewSales      Boolean @default(true)
+  canViewVideo      Boolean @default(true)
+  canViewFootfall   Boolean @default(true)
+  canSignDocuments  Boolean @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  cameraAssignments CameraAssignment[]
+  documentAssignments SupplierDocumentAssignment[]
+
+  @@index([supplierId])
+}
+
+/// Назначение IP-камеры конкретному поставщику (для Live Monitoring полки/бренда)
+model CameraAssignment {
+  id             String   @id @default(cuid())
+  supplierProfileId String
+  supplierProfile SupplierProfile @relation(fields: [supplierProfileId], references: [id], onDelete: Cascade)
+  storeId        String?
+  store          Store?   @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  label          String   // «Полка 12, касса», «Зал — бренд X»
+  /// YouTube live URL / HLS / RTSP-прокси. RTMP ingest не встраивать на клиенте.
+  streamUrl      String
+  /// true, если камера активна / доступна (флажок обновляет админ или интеграция)
+  isAvailable    Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([supplierProfileId])
+  @@index([storeId])
+}
+
+/// Шаблон договора, загружаемый админом (HTML/PDF ссылка или base64 data URL)
+model SupplierDocumentTemplate {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  /// Тип содержимого: "html" | "pdf" | "url"
+  mimeKind    String   @default("html")
+  /// HTML или ссылка/URL на файл
+  content     String   @db.Text
+  isArchived  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignments SupplierDocumentAssignment[]
+}
+
+enum SupplierDocumentStatus {
+  PENDING
+  SIGNED
+  DECLINED
+  EXPIRED
+}
+
+/// Привязка шаблона к конкретному поставщику + статус подписи
+model SupplierDocumentAssignment {
+  id                String   @id @default(cuid())
+  templateId        String
+  template          SupplierDocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  supplierProfileId String
+  supplierProfile   SupplierProfile @relation(fields: [supplierProfileId], references: [id], onDelete: Cascade)
+  status            SupplierDocumentStatus @default(PENDING)
+  dueAt             DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  signatures SupplierDocumentSignature[]
+
+  @@unique([templateId, supplierProfileId])
+  @@index([supplierProfileId, status])
+}
+
+/// История подписей: каждое действие логируется (даже если подписант один)
+model SupplierDocumentSignature {
+  id            String   @id @default(cuid())
+  assignmentId  String
+  assignment    SupplierDocumentAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  /// Полное имя подписанта (как ввёл пользователь)
+  fullName      String
+  /// Base64 data:image/png — штрих подписи, нарисованный на canvas
+  signatureDataUrl String @db.Text
+  ipAddress     String?
+  userAgent     String?
+  signedAt      DateTime @default(now())
+
+  @@index([assignmentId, signedAt])
+}
+
+/// Глобальные настройки модуля поставщика (threshold rotation по умолчанию и т.п.)
+model SupplierSettings {
+  id                       Int      @id @default(1)
+  rotationThresholdDays    Int      @default(30)
+  updatedAt                DateTime @updatedAt
 }
