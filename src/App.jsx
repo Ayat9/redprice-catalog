@@ -14,6 +14,8 @@ import AdminRedisEsl from './pages/AdminRedisEsl'
 import InvestorPage from './app/(redprice)/InvestorPage'
 import SupplierPage from './app/(supplier)/SupplierPage'
 import SupplierLoginPage from './app/(supplier)/SupplierLoginPage'
+import PartnersPage from './pages/PartnersPage'
+import PartnerLoginPage from './pages/PartnerLoginPage'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import Home from './pages/Home'
 import NewsFeed from './pages/NewsFeed'
@@ -40,6 +42,8 @@ function App() {
           <Route path="/admin/cennik" element={<AdminCennik />} />
           <Route path="/admin/redis-esl" element={<AdminRedisEsl />} />
           <Route path="/investor" element={<InvestorPage />} />
+          <Route path="/partners" element={<PartnersPage />} />
+          <Route path="/partner-login" element={<PartnerLoginPage />} />
           <Route path="/supplier/login" element={<SupplierLoginPage />} />
           <Route
             path="/supplier"

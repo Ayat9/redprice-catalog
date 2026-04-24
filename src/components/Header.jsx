@@ -19,59 +19,76 @@ const linkBase =
 const linkIdle = 'text-slate-600 hover:text-slate-900 hover:bg-gray-100'
 const linkActive = 'bg-gray-100 text-slate-900'
 
-export default function Header({ showCart = false, cartCount = 0, cartTotal = 0, onOpenCart }) {
+export default function Header({
+  showCart = false,
+  cartCount = 0,
+  cartTotal = 0,
+  onOpenCart,
+  showPartnerLoginButton = false,
+}) {
   const location = useLocation()
   const pathname = location.pathname || ''
   const { session } = useSession()
   const isSupplier = session?.role === 'SUPPLIER'
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 font-sans backdrop-blur supports-[backdrop-filter]:bg-white/80">
-      <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center justify-between px-8 sm:px-14 lg:px-24 xl:px-32">
+    <header className="site-header sticky top-0 z-40 border-b border-slate-200 bg-white/95 font-sans backdrop-blur supports-[backdrop-filter]:bg-white/80">
+      <div className="nav-inner mx-auto flex h-auto w-full max-w-[1180px] flex-col items-center justify-between gap-[14px] px-4 py-[14px] md:h-[72px] md:flex-row md:gap-0 md:px-6 md:py-0">
         <Link
           to="/"
           className="shrink-0 text-lg font-bold tracking-[-0.02em] text-[#E41C2A] transition-colors hover:text-[#c91822]"
         >
           Redprice.kz
         </Link>
-
-        <nav
-          className="flex items-center gap-3 overflow-x-auto sm:gap-5 lg:gap-[30px]"
-          aria-label="Основное меню"
-        >
-          {navLinks.map(({ to, label, match }) => {
-            const isActive = match(pathname)
-            return (
-              <Link
-                key={to + label}
-                to={to}
-                aria-current={isActive ? 'page' : undefined}
-                className={cn(linkBase, 'whitespace-nowrap', isActive ? linkActive : linkIdle)}
-              >
-                {label}
-              </Link>
-            )
-          })}
-          <Link
-            to={isSupplier ? '/supplier' : '/supplier/login'}
-            className={cn(
-              linkBase,
-              'whitespace-nowrap',
-              pathname.startsWith('/supplier') ? linkActive : linkIdle
-            )}
+        <div className="flex items-center gap-4">
+          <nav
+            className="nav-menu flex flex-wrap items-center justify-center gap-3 md:gap-4"
+            aria-label="Основное меню"
           >
-            {isSupplier ? 'Кабинет партнёра' : 'Партнёры'}
-          </Link>
-          <Link
-            to="/contacts"
-            className={cn(
-              linkBase,
-              'whitespace-nowrap',
-              pathname === '/contacts' ? linkActive : linkIdle
-            )}
-          >
-            Контакты
-          </Link>
+            {navLinks.map(({ to, label, match }) => {
+              const isActive = match(pathname)
+              return (
+                <Link
+                  key={to + label}
+                  to={to}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={cn(linkBase, 'whitespace-nowrap', isActive ? linkActive : linkIdle)}
+                >
+                  {label}
+                </Link>
+              )
+            })}
+            <Link
+              to={isSupplier ? '/supplier' : '/partners'}
+              className={cn(
+                linkBase,
+                'whitespace-nowrap border-b-2 border-transparent pb-1',
+                pathname.startsWith('/supplier') || pathname === '/partners' || pathname === '/partner-login'
+                  ? 'text-slate-900 border-[#E30613]'
+                  : 'text-slate-600 hover:text-slate-900 hover:border-slate-200'
+              )}
+            >
+              {isSupplier ? 'Кабинет партнёра' : 'Партнёры'}
+            </Link>
+            <Link
+              to="/contacts"
+              className={cn(
+                linkBase,
+                'whitespace-nowrap',
+                pathname === '/contacts' ? linkActive : linkIdle
+              )}
+            >
+              Контакты
+            </Link>
+          </nav>
+          {showPartnerLoginButton && (
+            <Link
+              to="/partner-login"
+              className="inline-flex h-11 items-center rounded-xl bg-[#E30613] px-5 text-sm font-bold text-white shadow-[0_10px_24px_rgba(227,6,19,0.25)] transition hover:-translate-y-0.5 hover:bg-[#c10511]"
+            >
+              Войти для партнёров →
+            </Link>
+          )}
           {showCart && (
             <button
               type="button"
@@ -84,7 +101,7 @@ export default function Header({ showCart = false, cartCount = 0, cartTotal = 0,
               </span>
             </button>
           )}
-        </nav>
+        </div>
       </div>
     </header>
   )

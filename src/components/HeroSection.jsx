@@ -56,6 +56,15 @@ export default function HeroSection() {
             </div>
           ))}
         </dl>
+
+        <div className="mt-12 w-full max-w-5xl rounded-3xl bg-white p-3 shadow-sm">
+          <img
+            src="/images/partners-esl-promo-v4.png"
+            alt="Система синхронизации цен и автоматического промо"
+            className="w-full rounded-2xl"
+            loading="lazy"
+          />
+        </div>
       </div>
     </section>
   )

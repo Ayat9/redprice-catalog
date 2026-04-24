@@ -12,7 +12,7 @@ export default function Footer() {
   const year = new Date().getFullYear()
   return (
     <footer className="mt-16 border-t border-slate-200 bg-slate-900 text-slate-300">
-      <div className="mx-auto grid w-full max-w-[1200px] gap-10 px-4 py-12 sm:px-6 md:grid-cols-3 lg:px-8">
+      <div className="footer-inner mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-6 px-4 py-12 text-center sm:px-6 md:grid-cols-3 md:gap-10 md:text-left lg:px-8">
         <div>
           <Link to="/" className="text-lg font-bold tracking-[-0.02em] text-white">
             Redprice<span className="text-[#E41C2A]">.kz</span>
@@ -56,7 +56,7 @@ export default function Footer() {
               </Link>
             </li>
             <li>
-              <Link to="/supplier/login" className="transition hover:text-white">
+              <Link to="/partners" className="transition hover:text-white">
                 Партнёры
               </Link>
             </li>
@@ -92,7 +92,7 @@ export default function Footer() {
       </div>
 
       <div className="border-t border-slate-800">
-        <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-slate-500 sm:flex-row sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-[1280px] flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-slate-500 sm:flex-row sm:px-6 lg:px-8">
           <p>© {year} Redprice.kz. Все права защищены.</p>
           <p>
             Сделано в Казахстане ·{' '}
