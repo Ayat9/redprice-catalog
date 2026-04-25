@@ -195,7 +195,7 @@ export function InvestorDashboardLayout({
       <aside
         style={{ width: isDesktop ? sidebarW : EXPANDED_W }}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/5 bg-[#1C2434] px-3 py-8 shadow-xl transition-[transform,width] duration-200 ease-out md:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex flex-col bg-[#0F172A] px-3 py-8 shadow-2xl transition-[transform,width] duration-200 ease-out md:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           isDesktop && collapsed && 'items-stretch px-2'
         )}
@@ -213,8 +213,8 @@ export function InvestorDashboardLayout({
           paddingLeft: isDesktop ? sidebarW : 0,
         }}
       >
-        <header className="sticky top-0 z-30 border-b border-gray-200 bg-white shadow-sm">
-          <div className="px-4 py-5 md:px-8 md:py-7 lg:px-10">
+        <header className="sticky top-0 z-30 bg-[#F8FAFC]/90 backdrop-blur">
+          <div className="mx-auto max-w-[1280px] px-4 py-5 md:px-8 md:py-7">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
               <div className="flex min-w-0 flex-1 items-start gap-3">
                 <Button
@@ -248,8 +248,8 @@ export function InvestorDashboardLayout({
                     </span>
                   </div>
                   <p className="text-[13px] font-medium tracking-tight text-gray-500">{activeLabel}</p>
-                  <p className="max-w-2xl text-[15px] leading-[1.65] text-gray-500">
-                    Инвесторский дашборд · данные обновляются после подключения интеграций по API.
+                  <p className="max-w-2xl text-[15px] leading-[1.65] text-[#64748B]">
+                    Прозрачная аналитика сети, финансов и динамики продаж в одном кабинете.
                   </p>
                 </div>
               </div>
@@ -274,7 +274,7 @@ export function InvestorDashboardLayout({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-10 rounded-lg border-gray-200 bg-white px-5 text-gray-800 shadow-sm hover:bg-gray-50"
+                  className="h-10 rounded-xl border-0 bg-white px-5 text-gray-800 shadow-sm transition hover:-translate-y-0.5 hover:bg-gray-50"
                   onClick={handleRefresh}
                   disabled={refreshing}
                 >
@@ -283,14 +283,14 @@ export function InvestorDashboardLayout({
                     strokeWidth={1.5}
                     aria-hidden
                   />
-                  Обновить данные
+                  Обновить
                 </Button>
                 {onOpenPasswordReset && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-10 rounded-lg border-gray-200 bg-white px-4 text-gray-800 shadow-sm hover:bg-gray-50"
+                    className="h-10 rounded-xl border-0 bg-white px-4 text-gray-800 shadow-sm transition hover:-translate-y-0.5 hover:bg-gray-50"
                     onClick={onOpenPasswordReset}
                   >
                     <KeyRound className="mr-1.5 size-4" strokeWidth={1.5} aria-hidden />
@@ -302,11 +302,11 @@ export function InvestorDashboardLayout({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-10 rounded-lg border-gray-200 bg-white px-4 text-gray-800 shadow-sm hover:bg-gray-50"
+                    className="h-10 rounded-xl border-0 bg-white px-4 text-gray-800 shadow-sm transition hover:-translate-y-0.5 hover:bg-gray-50"
                     onClick={onOpenSupport}
                   >
                     <Headset className="mr-1.5 size-4" strokeWidth={1.5} aria-hidden />
-                    Техподдержка AI
+                    Поддержка AI
                   </Button>
                 )}
                 {onLogout && (
@@ -314,7 +314,7 @@ export function InvestorDashboardLayout({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-10 rounded-lg border-gray-200 bg-white px-5 text-gray-800 shadow-sm hover:bg-gray-50"
+                    className="h-10 rounded-xl border-0 bg-white px-5 text-gray-800 shadow-sm transition hover:-translate-y-0.5 hover:bg-gray-50"
                     onClick={onLogout}
                   >
                     Выйти
@@ -325,8 +325,8 @@ export function InvestorDashboardLayout({
           </div>
         </header>
 
-        <main className="flex-1 bg-[#F9FAFB] px-4 py-6 md:px-8 md:py-8 lg:px-10 lg:py-10">
-          {children}
+        <main className="flex-1 bg-[#F8FAFC] px-4 py-6 md:px-8 md:py-8">
+          <div className="mx-auto max-w-[1280px]">{children}</div>
         </main>
       </div>
     </div>

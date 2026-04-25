@@ -35,8 +35,8 @@ export default function HeroSection() {
         </h1>
 
         <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
-          Redprice объединяет электронные ценники, видеонаблюдение, аналитику продаж и личные
-          кабинеты для инвесторов и поставщиков. Меньше рутины — больше решений на данных.
+          Redprice объединяет электронные ценники, видеонаблюдение и аналитику продаж.
+          Меньше рутины — больше решений на данных.
         </p>
 
         <dl className="mx-auto mt-12 flex w-full max-w-4xl flex-wrap items-stretch justify-center gap-4 px-4 sm:gap-6 sm:px-6">

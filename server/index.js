@@ -18,6 +18,16 @@ const PROJECT_ROOT = path.resolve(__dirname, '..')
 
 const DEFAULT_VALUE = { name: '', price: '' }
 const DATA_FILE = path.join(PROJECT_ROOT, '.data', 'electronic_price.json')
+const CONTACTS_FILE = path.join(PROJECT_ROOT, '.data', 'contacts.json')
+const DEFAULT_CONTACTS = {
+  phone: '+7 777 123 45 67',
+  whatsapp: 'https://wa.me/77771234567',
+  email: 'info@redprice.kz',
+  address: 'Алматы, Казахстан',
+  workingHours: 'Пн-Вс 09:00-21:00',
+  mapEmbed:
+    '<iframe src="https://www.google.com/maps?q=Almaty%2C%20Kazakhstan&output=embed" width="100%" height="360" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>',
+}
 const SUPABASE_URL = process.env.SUPABASE_URL || ''
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 const SUPABASE_TABLE = process.env.SUPABASE_PRICE_TABLE || 'electronic_price'
@@ -46,6 +56,30 @@ async function readJsonFile(filePath) {
   } catch (_) {
     return { ...DEFAULT_VALUE }
   }
+}
+
+async function readContactsValue() {
+  try {
+    const raw = await fs.readFile(CONTACTS_FILE, 'utf8')
+    const parsed = JSON.parse(raw)
+    return { ...DEFAULT_CONTACTS, ...(parsed && typeof parsed === 'object' ? parsed : {}) }
+  } catch (_) {
+    return { ...DEFAULT_CONTACTS }
+  }
+}
+
+async function writeContactsValue(payload) {
+  const next = {
+    phone: String(payload?.phone ?? '').trim(),
+    whatsapp: String(payload?.whatsapp ?? '').trim(),
+    email: String(payload?.email ?? '').trim(),
+    address: String(payload?.address ?? '').trim(),
+    workingHours: String(payload?.workingHours ?? '').trim(),
+    mapEmbed: String(payload?.mapEmbed ?? '').trim(),
+  }
+  await ensureDir(CONTACTS_FILE)
+  await fs.writeFile(CONTACTS_FILE, JSON.stringify(next, null, 2), 'utf8')
+  return next
 }
 
 function writeMirroredFiles(payload) {
@@ -257,6 +291,26 @@ app.post(['/api/investor-support', '/api/investor-support/'], async (req, res) =
     res.setHeader('Content-Type', 'application/json; charset=utf-8')
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.status(out.status || 200).send(out.body)
+  } catch (err) {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.status(500).send(JSON.stringify({ ok: false, error: err?.message || 'Server error' }))
+  }
+})
+
+app.get(['/api/contacts', '/api/contacts/'], async (_req, res) => {
+  const data = await readContactsValue()
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.status(200).send(JSON.stringify(data))
+})
+
+app.put(['/api/contacts', '/api/contacts/'], async (req, res) => {
+  try {
+    const updated = await writeContactsValue(req.body || {})
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.status(200).send(JSON.stringify(updated))
   } catch (err) {
     res.setHeader('Content-Type', 'application/json; charset=utf-8')
     res.setHeader('Access-Control-Allow-Origin', '*')

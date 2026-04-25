@@ -16,6 +16,8 @@ import SupplierPage from './app/(supplier)/SupplierPage'
 import SupplierLoginPage from './app/(supplier)/SupplierLoginPage'
 import PartnersPage from './pages/PartnersPage'
 import PartnerLoginPage from './pages/PartnerLoginPage'
+import ContactsPage from './pages/ContactsPage'
+import AdminContactsPage from './pages/AdminContactsPage'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import Home from './pages/Home'
 import NewsFeed from './pages/NewsFeed'
@@ -38,6 +40,7 @@ function App() {
           <Route path="/opt" element={<Navigate to="/" replace />} />
           <Route path="/zakup" element={<Navigate to="/" replace />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/contacts" element={<AdminContactsPage />} />
           <Route path="/admin/set-password" element={<AdminSetPassword />} />
           <Route path="/admin/cennik" element={<AdminCennik />} />
           <Route path="/admin/redis-esl" element={<AdminRedisEsl />} />
@@ -55,6 +58,7 @@ function App() {
           />
           <Route path="/news" element={<NewsFeed />} />
           <Route path="/news/:slug" element={<NewsArticle />} />
+          <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/admin-panel" element={<Navigate to="/admin?panel=api" replace />} />
           <Route path="/admin/news-editor" element={<Navigate to="/admin?panel=news" replace />} />
         </Routes>
