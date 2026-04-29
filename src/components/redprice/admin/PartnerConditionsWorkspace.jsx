@@ -29,6 +29,23 @@ function readFileAsDataUrl(file) {
   })
 }
 
+async function parseJsonSafe(res) {
+  const text = await res.text()
+  if (!text) return null
+  try {
+    return JSON.parse(text)
+  } catch (_) {
+    return { raw: text }
+  }
+}
+
+function resolveApiError(data, fallback) {
+  if (data?.error && typeof data.error === 'string') return data.error
+  if (data?.message && typeof data.message === 'string') return data.message
+  if (data?.raw && typeof data.raw === 'string') return data.raw.slice(0, 180)
+  return fallback
+}
+
 export default function PartnerConditionsWorkspace() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -47,8 +64,10 @@ export default function PartnerConditionsWorkspace() {
     setMessage('')
     try {
       const res = await fetch('/api/partner-conditions')
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || 'Не удалось загрузить список PDF')
+      const data = await parseJsonSafe(res)
+      if (!res.ok) {
+        throw new Error(resolveApiError(data, `Не удалось загрузить список PDF (${res.status})`))
+      }
       setItems(Array.isArray(data?.items) ? data.items : [])
     } catch (err) {
       setMessage(err?.message || 'Ошибка загрузки')
@@ -81,8 +100,17 @@ export default function PartnerConditionsWorkspace() {
           dataUrl,
         }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || 'Не удалось загрузить PDF')
+      const data = await parseJsonSafe(res)
+      if (!res.ok) {
+        throw new Error(resolveApiError(data, `Не удалось загрузить PDF (${res.status})`))
+      }
+
+      // Fallback for empty/non-JSON successful responses from proxies
+      if (!data || typeof data !== 'object' || !data.id) {
+        await loadConditions()
+        setMessage('PDF обновлён.')
+        return
+      }
 
       setItems((prev) => {
         const next = prev.filter((item) => item.id !== planId)
