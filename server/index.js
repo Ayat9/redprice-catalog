@@ -412,6 +412,46 @@ app.post(['/api/partner-conditions/:plan', '/api/partner-conditions/:plan/'], as
   }
 })
 
+app.post(['/api/partner-conditions', '/api/partner-conditions/'], async (req, res) => {
+  try {
+    const plan = String(req.body?.plan || '').trim()
+    if (!plan) {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      return res.status(400).send(JSON.stringify({ ok: false, error: 'Не указан тип условий' }))
+    }
+    const updated = await writePartnerConditionFile(plan, req.body || {})
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    return res.status(200).send(JSON.stringify(updated))
+  } catch (err) {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    return res.status(400).send(JSON.stringify({ ok: false, error: err?.message || 'Ошибка загрузки PDF' }))
+  }
+})
+
+app.get(['/api/partner-conditions/file/:plan', '/api/partner-conditions/file/:plan/'], async (req, res) => {
+  const plan = String(req.params.plan || '').trim()
+  const meta = PARTNER_CONDITIONS[plan]
+  if (!meta) {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    return res.status(404).send(JSON.stringify({ ok: false, error: 'Неизвестный тип условий' }))
+  }
+  const filePath = path.join(PARTNER_CONDITIONS_DIR, meta.filename)
+  try {
+    const buffer = await fs.readFile(filePath)
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Cache-Control', 'no-store')
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `inline; filename="${meta.filename}"`)
+    return res.status(200).send(buffer)
+  } catch {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    return res.status(404).send(JSON.stringify({ ok: false, error: 'Файл не найден' }))
+  }
+})
+
 app.post(
   ['/api/price', '/api/price/', '/api/price.json', '/api/price.json/'],
   async (req, res) => {

@@ -46,6 +46,25 @@ function resolveApiError(data, fallback) {
   return fallback
 }
 
+async function uploadConditionRequest(planId, payload) {
+  const primary = await fetch(`/api/partner-conditions/${planId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+
+  // Some deployments expose only /api/partner-conditions (without dynamic route)
+  if (primary.status === 404 || primary.status === 405 || primary.status === 501) {
+    return fetch('/api/partner-conditions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan: planId, ...payload }),
+    })
+  }
+
+  return primary
+}
+
 export default function PartnerConditionsWorkspace() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -92,13 +111,9 @@ export default function PartnerConditionsWorkspace() {
     setUploading(planId)
     try {
       const dataUrl = await readFileAsDataUrl(file)
-      const res = await fetch(`/api/partner-conditions/${planId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: file.name,
-          dataUrl,
-        }),
+      const res = await uploadConditionRequest(planId, {
+        filename: file.name,
+        dataUrl,
       })
       const data = await parseJsonSafe(res)
       if (!res.ok) {
