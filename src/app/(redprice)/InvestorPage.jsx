@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { InvestorDashboardLayout } from './layout'
 import VideoSurveillance from '../../components/redprice/VideoSurveillance'
 import FinancialCards from '../../components/redprice/FinancialCards'
@@ -6,6 +7,7 @@ import FootfallMarketing from '../../components/redprice/FootfallMarketing'
 import PlanogramHeatmap from '../../components/redprice/PlanogramHeatmap'
 import ReportsDividends from '../../components/redprice/ReportsDividends'
 import InvestorHero from '../../components/redprice/InvestorHero'
+import LoginCard from '../../components/auth/LoginCard'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import {
   Dialog,
@@ -161,40 +163,44 @@ export default function InvestorPage() {
 
   if (!session) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[#F9FAFB] to-[#eef2f7] p-6 md:p-10">
-        <div className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white/95 p-7 shadow-xl backdrop-blur">
-          <div className="mb-5 space-y-2 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#E41C2A]">Investor Access</p>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">REDPRICE GROUP</h1>
-            <p className="text-sm text-slate-500">Вход для инвестора</p>
-          </div>
-          <form className="mt-6 space-y-3" onSubmit={onLogin}>
-            <input
-              type="email"
-              className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 shadow-sm outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200/70"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <input
-              type="password"
-              className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 shadow-sm outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200/70"
-              placeholder="Пароль"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            {loginError && <p className="text-sm text-red-600">{loginError}</p>}
-            <button
-              type="submit"
-              className="w-full rounded-xl bg-[#E41C2A] px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-[#c91822]"
-            >
-              Войти
+      <LoginCard
+        badge="INVESTOR ACCESS"
+        title="REDPRICE GROUP"
+        subtitle="Вход для инвестора"
+        footer={
+          <div className="login-card-links">
+            <button type="button" className="login-card-link-button">
+              Забыли пароль?
             </button>
-          </form>
-        </div>
-      </div>
+            <Link to="/" className="login-card-link">← На главную</Link>
+          </div>
+        }
+      >
+        <form className="login-form" onSubmit={onLogin}>
+          <input
+            type="email"
+            className="login-input"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="username"
+          />
+          <input
+            type="password"
+            className="login-input"
+            placeholder="Пароль"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+          />
+          {loginError && <p className="login-error">{loginError}</p>}
+          <button type="submit" className="login-submit">
+            Войти
+          </button>
+        </form>
+      </LoginCard>
     )
   }
 

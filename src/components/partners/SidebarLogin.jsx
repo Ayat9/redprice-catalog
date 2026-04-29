@@ -22,14 +22,14 @@ export default function SidebarLogin() {
           placeholder="пароль"
           className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200"
         />
-        <Button type="button" className="w-full bg-[#E30613] hover:bg-[#c60510]">
+        <Button type="button" className="btn-primary w-full">
           Войти
         </Button>
       </form>
       <Button
         type="button"
         variant="outline"
-        className="mt-3 w-full border-[#E30613] text-[#E30613] hover:bg-red-50"
+        className="btn-primary mt-3 w-full"
         onClick={() => {
           document.getElementById('partners-hero')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
         }}

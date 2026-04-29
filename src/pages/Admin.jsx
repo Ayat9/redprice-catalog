@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import LoginCard from '../components/auth/LoginCard'
 import ApiSettingsWorkspace from '../components/redprice/admin/ApiSettingsWorkspace'
 import AdminNewsWorkspace from '../components/redprice/admin/AdminNewsWorkspace'
 import PartnerConditionsWorkspace from '../components/redprice/admin/PartnerConditionsWorkspace'
@@ -640,66 +641,75 @@ export default function Admin() {
 
   if (!isLoggedIn) {
     return (
-      <div className="admin-page">
-        <div className="admin-login">
-          <div className="admin-login-card">
-            <h1>Вход в админ-панель</h1>
-            <p>Введите email и пароль</p>
+      <LoginCard
+        title={showReset ? 'Сброс пароля' : 'Вход в админ-панель'}
+        subtitle={showReset ? 'Введите email учётной записи.' : 'Введите email и пароль'}
+        footer={
+          <div className="login-card-links">
             {!showReset ? (
-              <form onSubmit={handleLogin}>
-                <input
-                  type="email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="Email"
-                  className="admin-input admin-login-input"
-                  autoFocus
-                  required
-                />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Пароль"
-                  className="admin-input admin-login-input"
-                />
-                {loginError && <p className="admin-login-error">{loginError}</p>}
-                <button type="submit" className="btn-save admin-login-btn">Войти</button>
-              </form>
+              <button type="button" className="login-card-link-button" onClick={() => setShowReset(true)}>
+                Забыли пароль?
+              </button>
             ) : (
-              <div className="admin-reset-block">
-                <p className="admin-reset-title">Сброс пароля</p>
-                <p className="admin-reset-hint">Введите email учётной записи. На него будет отправлена ссылка для сброса пароля (сброс возможен только через почту).</p>
-                <form onSubmit={handleReset}>
-                  <input
-                    type="email"
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    placeholder="Email"
-                    className="admin-input admin-login-input"
-                    autoFocus
-                    required
-                  />
-                  {resetResult?.success === false && <p className="admin-login-error">{resetResult.message}</p>}
-                  {resetResult?.success && (
-                    <p className="admin-login-success">{resetResult.message}
-                      {resetResult.resetLink && (
-                        <span className="admin-reset-link-wrap"> Ссылка для перехода: <a href={resetResult.resetLink} className="admin-reset-link">{resetResult.resetLink}</a></span>
-                      )}
-                    </p>
-                  )}
-                  <div className="admin-reset-actions">
-                    <button type="button" className="btn-cancel" onClick={() => { setShowReset(false); setResetEmail(''); setResetResult(null) }}>Отмена</button>
-                    <button type="submit" className="btn-save">Отправить ссылку на email</button>
-                  </div>
-                </form>
-              </div>
+              <button
+                type="button"
+                className="login-card-link-button"
+                onClick={() => { setShowReset(false); setResetEmail(''); setResetResult(null) }}
+              >
+                ← Назад ко входу
+              </button>
             )}
-            {!showReset && <button type="button" className="admin-forgot-link" onClick={() => setShowReset(true)}>Забыли пароль?</button>}
-            <Link to="/" className="admin-back admin-login-back">← На главную</Link>
+            <Link to="/" className="login-card-link">← На главную</Link>
           </div>
-        </div>
-      </div>
+        }
+      >
+        {!showReset ? (
+          <form className="login-form" onSubmit={handleLogin}>
+            <input
+              type="email"
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+              placeholder="Email"
+              className="login-input"
+              autoFocus
+              required
+              autoComplete="username"
+            />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Пароль"
+              className="login-input"
+              autoComplete="current-password"
+            />
+            {loginError && <p className="login-error">{loginError}</p>}
+            <button type="submit" className="login-submit">Войти</button>
+          </form>
+        ) : (
+          <form className="login-form" onSubmit={handleReset}>
+            <input
+              type="email"
+              value={resetEmail}
+              onChange={(e) => setResetEmail(e.target.value)}
+              placeholder="Email"
+              className="login-input"
+              autoFocus
+              required
+              autoComplete="username"
+            />
+            {resetResult?.success === false && <p className="login-error">{resetResult.message}</p>}
+            {resetResult?.success && (
+              <p className="login-success">{resetResult.message}
+                {resetResult.resetLink && (
+                  <span> Ссылка для перехода: <a href={resetResult.resetLink} className="login-card-link">{resetResult.resetLink}</a></span>
+                )}
+              </p>
+            )}
+            <button type="submit" className="login-submit">Отправить ссылку на email</button>
+          </form>
+        )}
+      </LoginCard>
     )
   }
 

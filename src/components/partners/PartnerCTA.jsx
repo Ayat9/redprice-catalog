@@ -19,7 +19,7 @@ export default function PartnerCTA({ onJoinOpen }) {
       <Button
         type="button"
         onClick={onJoinOpen}
-        className="mt-4 h-9 rounded-lg bg-[#E30613] px-7 text-white hover:bg-[#c10511]"
+        className="btn-primary mt-4"
       >
         Подключиться
       </Button>

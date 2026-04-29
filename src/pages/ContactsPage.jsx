@@ -62,7 +62,7 @@ export default function ContactsPage() {
               href={data.whatsapp || '#'}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-12 items-center justify-center rounded-xl bg-[#25D366] px-6 font-semibold text-white shadow-sm transition hover:brightness-95"
+              className="btn-whatsapp"
             >
               Написать в WhatsApp
             </a>

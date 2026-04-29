@@ -75,14 +75,14 @@ export default function PartnershipPlans({ onJoinOpen, onPlanConditionsOpen }) {
                 type="button"
                 variant="outline"
                 onClick={() => onPlanConditionsOpen(plan)}
-                className="h-9 w-full rounded-lg border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                className="btn-secondary w-full"
               >
                 Скачать условия
               </Button>
               <Button
                 type="button"
                 onClick={onJoinOpen}
-                className="h-9 w-full rounded-lg bg-[#E30613] text-white hover:bg-[#c10511]"
+                className="btn-primary w-full"
               >
                 Подключиться
               </Button>

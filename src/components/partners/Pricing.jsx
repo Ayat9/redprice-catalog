@@ -58,10 +58,7 @@ export default function Pricing() {
             </motion.ul>
             <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
               <Button
-                className={[
-                  'mt-6 w-full',
-                  plan.featured ? 'bg-[#E30613] hover:bg-[#c60510]' : 'bg-slate-900 hover:bg-slate-800',
-                ].join(' ')}
+                className="btn-primary mt-6 w-full"
               >
                 Подключиться
               </Button>

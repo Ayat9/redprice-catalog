@@ -40,13 +40,16 @@ function App() {
           <Route path="/opt" element={<Navigate to="/" replace />} />
           <Route path="/zakup" element={<Navigate to="/" replace />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/login" element={<Admin />} />
           <Route path="/admin/contacts" element={<AdminContactsPage />} />
           <Route path="/admin/set-password" element={<AdminSetPassword />} />
           <Route path="/admin/cennik" element={<AdminCennik />} />
           <Route path="/admin/redis-esl" element={<AdminRedisEsl />} />
           <Route path="/investor" element={<InvestorPage />} />
+          <Route path="/investor/login" element={<InvestorPage />} />
           <Route path="/partners" element={<PartnersPage />} />
           <Route path="/partner-login" element={<PartnerLoginPage />} />
+          <Route path="/partner/login" element={<PartnerLoginPage />} />
           <Route path="/supplier/login" element={<SupplierLoginPage />} />
           <Route
             path="/supplier"

@@ -11,9 +11,9 @@ import {
 } from 'lucide-react'
 
 export const heroStats = [
-  { value: '1 -> 50', label: 'масштаб сети магазинов' },
-  { value: '24/7', label: 'одновременные продажи и промо' },
-  { value: 'ABC', label: 'аналитика по категориям и SKU' },
+  { value: '1 → 50', label: 'Масштаб сети магазинов' },
+  { value: '24/7', label: 'Продажи, промо и аналитика' },
+  { value: 'ABC', label: 'Аналитика по категориям и SKU' },
 ]
 
 export const heroMock = {

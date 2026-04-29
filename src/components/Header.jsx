@@ -22,17 +22,17 @@ export default function Header({
   const pathname = location.pathname || ''
 
   return (
-    <header className="site-header sticky top-0 z-40 border-b border-slate-200 bg-white/95 font-sans backdrop-blur supports-[backdrop-filter]:bg-white/80">
-      <div className="nav-inner mx-auto flex h-auto w-full max-w-[1180px] items-center justify-between gap-[14px] px-4 py-[14px] md:h-[72px] md:px-6 md:py-0">
+    <header className="site-header sticky top-0 z-50 w-full border-b border-slate-200 bg-white/90 font-sans backdrop-blur">
+      <div className="nav-inner mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link
           to="/"
-          className="shrink-0 text-lg font-bold tracking-[-0.02em] text-[#E41C2A] transition-colors hover:text-[#c91822]"
+          className="mr-6 shrink-0 text-lg font-bold tracking-[-0.02em] text-[#E41C2A] transition-colors hover:text-[#c91822] md:mr-8"
         >
           Redprice.kz
         </Link>
-        <div className="flex items-center gap-6">
+        <div className="ml-auto hidden items-center gap-5 md:flex lg:gap-7">
           <nav
-            className="nav-menu hidden items-center gap-7 md:flex"
+            className="nav-menu hidden items-center gap-4 md:flex lg:gap-6"
             aria-label="Основное меню"
           >
             {navLinks.map(({ to, label, match }) => {

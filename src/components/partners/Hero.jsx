@@ -22,12 +22,12 @@ export default function Hero() {
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
-            <Button className="bg-[#E30613] px-6 hover:bg-[#c60510]">Стать партнёром</Button>
+            <Button className="btn-primary">Стать партнёром</Button>
           </motion.div>
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
             <Button
               variant="outline"
-              className="border-[#E30613] bg-white px-6 text-[#E30613] hover:bg-red-50"
+              className="btn-secondary"
             >
             Скачать условия
             </Button>
