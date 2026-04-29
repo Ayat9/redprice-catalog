@@ -67,7 +67,7 @@ export const plans = [
       'Базовое LED-продвижение',
       'Регулярная отчётность по продажам',
     ],
-    conditionLink: '/mock/conditions/early.pdf',
+    conditionLink: '/api/partner-conditions?file=early',
   },
   {
     name: 'STRATEGIC PARTNER',
@@ -79,7 +79,7 @@ export const plans = [
       'Расширенный маркетинговый пакет',
       'Углублённая аналитика и рекомендации',
     ],
-    conditionLink: '/mock/conditions/strategic.pdf',
+    conditionLink: '/api/partner-conditions?file=strategic',
   },
 ]
 
