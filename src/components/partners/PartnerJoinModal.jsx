@@ -14,7 +14,7 @@ export default function PartnerJoinModal({ open, onClose }) {
           onClick={onClose}
         >
           <motion.div
-            className="relative w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl sm:p-7"
+            className="relative w-[calc(100%-32px)] max-w-[760px] rounded-[24px] border border-slate-200 bg-white px-[18px] py-[22px] shadow-2xl sm:px-8 sm:py-7"
             initial={{ opacity: 0, scale: 0.96, y: 18 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 8 }}
@@ -29,27 +29,27 @@ export default function PartnerJoinModal({ open, onClose }) {
             >
               <X className="size-4" />
             </button>
-            <h3 className="text-2xl font-semibold text-slate-900">Подключиться</h3>
-            <p className="mt-1 text-sm text-slate-600">
+            <h3 className="mb-2 text-2xl font-semibold text-slate-900">Подключиться</h3>
+            <p className="mb-5 text-sm leading-[1.5] text-slate-600">
               Оставьте заявку, и команда Redprice свяжется с вами в ближайшее время.
             </p>
-            <form className="mt-5 grid gap-3 sm:grid-cols-2">
+            <form className="grid gap-4 sm:grid-cols-2">
               <input
                 type="text"
                 placeholder="Имя / компания"
-                className="h-11 rounded-xl border border-slate-200 px-3.5 text-sm outline-none transition focus:border-[#E30613]/60 focus:ring-4 focus:ring-[#E30613]/10 sm:col-span-2"
+                className="min-h-12 rounded-[14px] border border-slate-200 px-4 py-3.5 text-sm leading-[1.4] outline-none transition focus:border-[#E30613]/60 focus:ring-4 focus:ring-[#E30613]/10 sm:col-span-2"
               />
               <input
                 type="tel"
                 placeholder="Телефон"
-                className="h-11 rounded-xl border border-slate-200 px-3.5 text-sm outline-none transition focus:border-[#E30613]/60 focus:ring-4 focus:ring-[#E30613]/10"
+                className="min-h-12 rounded-[14px] border border-slate-200 px-4 py-3.5 text-sm leading-[1.4] outline-none transition focus:border-[#E30613]/60 focus:ring-4 focus:ring-[#E30613]/10"
               />
               <input
                 type="email"
                 placeholder="Email"
-                className="h-11 rounded-xl border border-slate-200 px-3.5 text-sm outline-none transition focus:border-[#E30613]/60 focus:ring-4 focus:ring-[#E30613]/10"
+                className="min-h-12 rounded-[14px] border border-slate-200 px-4 py-3.5 text-sm leading-[1.4] outline-none transition focus:border-[#E30613]/60 focus:ring-4 focus:ring-[#E30613]/10"
               />
-              <select className="h-11 rounded-xl border border-slate-200 px-3.5 text-sm text-slate-700 outline-none transition focus:border-[#E30613]/60 focus:ring-4 focus:ring-[#E30613]/10 sm:col-span-2">
+              <select className="min-h-12 rounded-[14px] border border-slate-200 px-4 py-3.5 text-sm leading-[1.4] text-slate-700 outline-none transition focus:border-[#E30613]/60 focus:ring-4 focus:ring-[#E30613]/10 sm:col-span-2">
                 <option value="">Тип партнёрства</option>
                 {plans.map((plan) => (
                   <option key={plan.name} value={plan.name}>
@@ -60,11 +60,11 @@ export default function PartnerJoinModal({ open, onClose }) {
               <textarea
                 rows={4}
                 placeholder="Комментарий"
-                className="rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none transition focus:border-[#E30613]/60 focus:ring-4 focus:ring-[#E30613]/10 sm:col-span-2"
+                className="min-h-[110px] rounded-[14px] border border-slate-200 px-4 py-3.5 text-sm leading-[1.4] outline-none transition focus:border-[#E30613]/60 focus:ring-4 focus:ring-[#E30613]/10 sm:col-span-2"
               />
               <button
                 type="button"
-                className="h-11 rounded-xl bg-[#E30613] px-6 font-medium text-white transition hover:bg-[#c10511] sm:col-span-2"
+                className="mt-2 h-[52px] rounded-[14px] bg-[#E30613] px-6 font-medium text-white transition hover:bg-[#c10511] sm:col-span-2"
               >
                 Отправить заявку
               </button>

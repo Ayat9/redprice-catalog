@@ -23,18 +23,20 @@ import {
   ClipboardList,
   Settings2,
   Newspaper,
+  FileText,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import ApiSettingsWorkspace from '../components/redprice/admin/ApiSettingsWorkspace'
 import AdminNewsWorkspace from '../components/redprice/admin/AdminNewsWorkspace'
+import PartnerConditionsWorkspace from '../components/redprice/admin/PartnerConditionsWorkspace'
 import SupplierAdminWorkspace from '../components/redprice/admin/SupplierAdminWorkspace'
 import './Admin.css'
 
 const SIDEBAR_W = { expanded: 260, collapsed: 72 }
 const navIc = { className: 'size-[18px] shrink-0 text-slate-500', strokeWidth: 1.5, 'aria-hidden': true }
 
-const VIEWS = { dashboard: 'dashboard', products: 'products', suppliers: 'suppliers', categories: 'categories', newProduct: 'newProduct', newCategory: 'newCategory', newSupplier: 'newSupplier', users: 'users', newUser: 'newUser', statistics: 'statistics', backup: 'backup', apiPanel: 'apiPanel', newsEditor: 'newsEditor', supplierPanel: 'supplierPanel' }
+const VIEWS = { dashboard: 'dashboard', products: 'products', suppliers: 'suppliers', categories: 'categories', newProduct: 'newProduct', newCategory: 'newCategory', newSupplier: 'newSupplier', users: 'users', newUser: 'newUser', statistics: 'statistics', backup: 'backup', apiPanel: 'apiPanel', newsEditor: 'newsEditor', supplierPanel: 'supplierPanel', partnerConditions: 'partnerConditions' }
 
 /** Каталог в админке — секция хранения `platform`. */
 const ADMIN_CATALOG_SECTION = 'platform'
@@ -70,6 +72,7 @@ export default function Admin() {
     if (p === 'api') setView(VIEWS.apiPanel)
     else if (p === 'news') setView(VIEWS.newsEditor)
     else if (p === 'suppliers') setView(VIEWS.supplierPanel)
+    else if (p === 'partner-conditions') setView(VIEWS.partnerConditions)
   }, [isLoggedIn, searchParams])
 
   const prevViewRef = useRef(null)
@@ -108,6 +111,26 @@ export default function Admin() {
       )
     }
     if (prev === VIEWS.newsEditor && view !== VIEWS.newsEditor && searchParams.get('panel') === 'news') {
+      setSearchParams(
+        (p0) => {
+          const p = new URLSearchParams(p0)
+          p.delete('panel')
+          return p
+        },
+        { replace: true }
+      )
+    }
+    if (view === VIEWS.partnerConditions && searchParams.get('panel') !== 'partner-conditions') {
+      setSearchParams(
+        (p0) => {
+          const p = new URLSearchParams(p0)
+          p.set('panel', 'partner-conditions')
+          return p
+        },
+        { replace: true }
+      )
+    }
+    if (prev === VIEWS.partnerConditions && view !== VIEWS.partnerConditions && searchParams.get('panel') === 'partner-conditions') {
       setSearchParams(
         (p0) => {
           const p = new URLSearchParams(p0)
@@ -170,6 +193,7 @@ export default function Admin() {
       [VIEWS.apiPanel]: 'data',
       [VIEWS.newsEditor]: 'data',
       [VIEWS.supplierPanel]: 'data',
+      [VIEWS.partnerConditions]: 'data',
     }
     const key = groupByView[view]
     if (key) setSidebarOpen((prev) => ({ ...prev, [key]: true }))
@@ -825,6 +849,15 @@ export default function Admin() {
               <Truck {...navIc} />
               {!sidebarCollapsed && <span>Поставщики</span>}
             </button>
+            <button
+              type="button"
+              className={`admin-nav-item ${view === VIEWS.partnerConditions ? 'active' : ''}`}
+              title="Условия PDF"
+              onClick={() => setView(VIEWS.partnerConditions)}
+            >
+              <FileText {...navIc} />
+              {!sidebarCollapsed && <span>Условия PDF</span>}
+            </button>
           </div>
         </div>
         <div className="admin-sidebar-toolbar">
@@ -863,6 +896,8 @@ export default function Admin() {
           {view === VIEWS.newsEditor && <AdminNewsWorkspace />}
 
           {view === VIEWS.supplierPanel && <SupplierAdminWorkspace />}
+
+          {view === VIEWS.partnerConditions && <PartnerConditionsWorkspace />}
 
           {view === VIEWS.dashboard && (
             <div className="admin-section">

@@ -16,7 +16,7 @@ export default function PartnershipPlans({ onJoinOpen, onPlanConditionsOpen }) {
         <h2 className="text-3xl font-semibold tracking-tight text-slate-900">Форматы партнёрства</h2>
       </motion.div>
 
-      <div className="mx-auto mt-4 grid max-w-6xl items-stretch gap-4 md:grid-cols-3">
+      <div className="mx-auto mt-4 grid max-w-4xl items-stretch gap-4 md:grid-cols-2">
         {plans.map((plan, index) => (
           <motion.article
             key={plan.name}

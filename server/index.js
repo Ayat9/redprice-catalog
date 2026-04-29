@@ -19,6 +19,17 @@ const PROJECT_ROOT = path.resolve(__dirname, '..')
 const DEFAULT_VALUE = { name: '', price: '' }
 const DATA_FILE = path.join(PROJECT_ROOT, '.data', 'electronic_price.json')
 const CONTACTS_FILE = path.join(PROJECT_ROOT, '.data', 'contacts.json')
+const PARTNER_CONDITIONS_DIR = path.join(PROJECT_ROOT, 'public', 'mock', 'conditions')
+const PARTNER_CONDITIONS = {
+  early: {
+    label: 'EARLY',
+    filename: 'early.pdf',
+  },
+  strategic: {
+    label: 'STRATEGIC PARTNER',
+    filename: 'strategic.pdf',
+  },
+}
 const DEFAULT_CONTACTS = {
   phone: '+7 777 123 45 67',
   whatsapp: 'https://wa.me/77771234567',
@@ -80,6 +91,68 @@ async function writeContactsValue(payload) {
   await ensureDir(CONTACTS_FILE)
   await fs.writeFile(CONTACTS_FILE, JSON.stringify(next, null, 2), 'utf8')
   return next
+}
+
+async function getPartnerConditionsValue() {
+  const entries = await Promise.all(
+    Object.entries(PARTNER_CONDITIONS).map(async ([id, meta]) => {
+      const filePath = path.join(PARTNER_CONDITIONS_DIR, meta.filename)
+      try {
+        const stat = await fs.stat(filePath)
+        return {
+          id,
+          label: meta.label,
+          url: `/mock/conditions/${meta.filename}`,
+          filename: meta.filename,
+          size: stat.size,
+          updatedAt: stat.mtime.toISOString(),
+          exists: true,
+        }
+      } catch (_) {
+        return {
+          id,
+          label: meta.label,
+          url: `/mock/conditions/${meta.filename}`,
+          filename: meta.filename,
+          size: 0,
+          updatedAt: null,
+          exists: false,
+        }
+      }
+    }),
+  )
+  return { items: entries }
+}
+
+async function writePartnerConditionFile(planId, payload) {
+  const meta = PARTNER_CONDITIONS[planId]
+  if (!meta) throw new Error('Неизвестный тип условий')
+
+  const rawData = String(payload?.dataUrl || payload?.base64 || '')
+  const base64 = rawData.includes(',') ? rawData.split(',').pop() : rawData
+  if (!base64) throw new Error('Файл не передан')
+
+  const buffer = Buffer.from(base64, 'base64')
+  if (!buffer.length) throw new Error('Файл пустой')
+  if (buffer.length > 15 * 1024 * 1024) throw new Error('PDF не должен быть больше 15 МБ')
+  if (!buffer.subarray(0, 5).toString('utf8').startsWith('%PDF-')) {
+    throw new Error('Загрузите файл в формате PDF')
+  }
+
+  await fs.mkdir(PARTNER_CONDITIONS_DIR, { recursive: true })
+  const filePath = path.join(PARTNER_CONDITIONS_DIR, meta.filename)
+  await fs.writeFile(filePath, buffer)
+  const stat = await fs.stat(filePath)
+  return {
+    id: planId,
+    label: meta.label,
+    url: `/mock/conditions/${meta.filename}`,
+    filename: meta.filename,
+    originalName: String(payload?.filename || '').trim(),
+    size: stat.size,
+    updatedAt: stat.mtime.toISOString(),
+    exists: true,
+  }
 }
 
 function writeMirroredFiles(payload) {
@@ -200,6 +273,7 @@ app.use(express.json({ type: ['application/json', '*/json'], limit: '120mb' }))
 app.use(eslExpressMiddleware)
 
 app.use('/uploads', express.static(path.join(PROJECT_ROOT, 'public', 'uploads')))
+app.use('/mock', express.static(path.join(PROJECT_ROOT, 'public', 'mock')))
 
 app.use(async (req, res, next) => {
   let pathname = (req.path || req.url || '').split('?')[0]
@@ -315,6 +389,26 @@ app.put(['/api/contacts', '/api/contacts/'], async (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8')
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.status(500).send(JSON.stringify({ ok: false, error: err?.message || 'Server error' }))
+  }
+})
+
+app.get(['/api/partner-conditions', '/api/partner-conditions/'], async (_req, res) => {
+  const data = await getPartnerConditionsValue()
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.status(200).send(JSON.stringify(data))
+})
+
+app.post(['/api/partner-conditions/:plan', '/api/partner-conditions/:plan/'], async (req, res) => {
+  try {
+    const updated = await writePartnerConditionFile(String(req.params.plan || ''), req.body || {})
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.status(200).send(JSON.stringify(updated))
+  } catch (err) {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.status(400).send(JSON.stringify({ ok: false, error: err?.message || 'Ошибка загрузки PDF' }))
   }
 })
 

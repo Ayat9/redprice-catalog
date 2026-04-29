@@ -59,38 +59,27 @@ export const benefits = [
 
 export const plans = [
   {
-    name: 'EARLY PARTNER',
-    description: 'Для брендов, которые заходят в сеть на раннем этапе и закрепляют категорию.',
+    name: 'EARLY',
+    description: 'Гибкие условия для поставщиков. Подходит для теста товара и начала сотрудничества с Redprice.',
     benefits: [
-      'Приоритетное размещение на старте',
-      'Фиксация полочного пространства',
+      'Гибкий старт сотрудничества',
+      'Тест товара в сети Redprice',
       'Базовое LED-продвижение',
       'Регулярная отчётность по продажам',
     ],
-    conditionLink: '/mock/conditions/early-partner.pdf',
+    conditionLink: '/mock/conditions/early.pdf',
   },
   {
     name: 'STRATEGIC PARTNER',
     featured: true,
-    description: 'Для ключевых поставщиков с целью быстрого масштабирования и роста доли.',
+    description: 'Для поставщиков, которые готовы поддержать сеть товаром и условиями, а Redprice усиливает продажи, бренд и аналитику.',
     benefits: [
       'Расширенная зона и брендирование',
       'Приоритет в новых точках сети',
       'Расширенный маркетинговый пакет',
       'Углублённая аналитика и рекомендации',
     ],
-    conditionLink: '/mock/conditions/strategic-partner.pdf',
-  },
-  {
-    name: 'INVESTOR PARTNER',
-    description: 'Для компаний, которые рассматривают партнёрство как товарную инвестицию.',
-    benefits: [
-      'Гибкая модель поставок',
-      'Форматы с отсрочкой и планом роста',
-      'Прозрачные KPI и контроль результата',
-      'Совместное планирование категории',
-    ],
-    conditionLink: '/mock/conditions/investor-partner.pdf',
+    conditionLink: '/mock/conditions/strategic.pdf',
   },
 ]
 
@@ -101,8 +90,8 @@ export const flowSteps = [
     icon: Handshake,
   },
   {
-    title: 'Согласовываем формат партнёрства',
-    description: 'Определяем план: EARLY, STRATEGIC или INVESTOR и фиксируем условия.',
+    title: 'Согласовываем формат сотрудничества',
+    description: 'Определяем план: EARLY или STRATEGIC PARTNER и фиксируем условия.',
     icon: ClipboardCheck,
   },
   {
