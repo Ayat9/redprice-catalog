@@ -1,10 +1,32 @@
 import {
   getPartnerConditionsList,
+  PARTNER_CONDITIONS,
+  readPartnerConditionFile,
   setJsonHeaders,
   writePartnerCondition,
 } from '../_partner-conditions.js'
 
 export default async function handler(req, res) {
+  const filePlanId = String(req.query?.file || '').trim()
+  const fileRequest = req.method === 'GET' && Boolean(filePlanId)
+
+  if (fileRequest) {
+    if (!PARTNER_CONDITIONS[filePlanId]) {
+      setJsonHeaders(res)
+      return res.status(404).json({ ok: false, error: 'Неизвестный тип условий' })
+    }
+    const file = await readPartnerConditionFile(filePlanId)
+    if (!file) {
+      setJsonHeaders(res)
+      return res.status(404).json({ ok: false, error: 'Файл не найден' })
+    }
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Cache-Control', 'no-store')
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `inline; filename="${file.filename}"`)
+    return res.status(200).send(file.buffer)
+  }
+
   setJsonHeaders(res)
 
   if (req.method === 'OPTIONS') return res.status(200).end()

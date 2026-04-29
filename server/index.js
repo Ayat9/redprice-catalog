@@ -102,7 +102,7 @@ async function getPartnerConditionsValue() {
         return {
           id,
           label: meta.label,
-          url: `/mock/conditions/${meta.filename}`,
+          url: `/api/partner-conditions?file=${encodeURIComponent(id)}`,
           filename: meta.filename,
           size: stat.size,
           updatedAt: stat.mtime.toISOString(),
@@ -112,7 +112,7 @@ async function getPartnerConditionsValue() {
         return {
           id,
           label: meta.label,
-          url: `/mock/conditions/${meta.filename}`,
+          url: `/api/partner-conditions?file=${encodeURIComponent(id)}`,
           filename: meta.filename,
           size: 0,
           updatedAt: null,
@@ -146,7 +146,7 @@ async function writePartnerConditionFile(planId, payload) {
   return {
     id: planId,
     label: meta.label,
-    url: `/mock/conditions/${meta.filename}`,
+    url: `/api/partner-conditions?file=${encodeURIComponent(planId)}`,
     filename: meta.filename,
     originalName: String(payload?.filename || '').trim(),
     size: stat.size,
@@ -392,11 +392,34 @@ app.put(['/api/contacts', '/api/contacts/'], async (req, res) => {
   }
 })
 
-app.get(['/api/partner-conditions', '/api/partner-conditions/'], async (_req, res) => {
+app.get(['/api/partner-conditions', '/api/partner-conditions/'], async (req, res) => {
+  const plan = String(req.query?.file || '').trim()
+  if (plan) {
+    const meta = PARTNER_CONDITIONS[plan]
+    if (!meta) {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      return res.status(404).send(JSON.stringify({ ok: false, error: 'Неизвестный тип условий' }))
+    }
+    const filePath = path.join(PARTNER_CONDITIONS_DIR, meta.filename)
+    try {
+      const buffer = await fs.readFile(filePath)
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      res.setHeader('Cache-Control', 'no-store')
+      res.setHeader('Content-Type', 'application/pdf')
+      res.setHeader('Content-Disposition', `inline; filename="${meta.filename}"`)
+      return res.status(200).send(buffer)
+    } catch {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      return res.status(404).send(JSON.stringify({ ok: false, error: 'Файл не найден' }))
+    }
+  }
+
   const data = await getPartnerConditionsValue()
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.status(200).send(JSON.stringify(data))
+  return res.status(200).send(JSON.stringify(data))
 })
 
 app.post(['/api/partner-conditions/:plan', '/api/partner-conditions/:plan/'], async (req, res) => {

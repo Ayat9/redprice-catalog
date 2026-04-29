@@ -32,7 +32,7 @@ export default async function handler(req, res) {
       label: PARTNER_CONDITIONS[planId].label,
       filename: file.filename,
       exists: true,
-      url: `/api/partner-conditions/file/${planId}`,
+      url: `/api/partner-conditions?file=${encodeURIComponent(planId)}`,
     })
   }
 

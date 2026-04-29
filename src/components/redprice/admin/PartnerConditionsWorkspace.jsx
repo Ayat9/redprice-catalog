@@ -47,18 +47,18 @@ function resolveApiError(data, fallback) {
 }
 
 async function uploadConditionRequest(planId, payload) {
-  const primary = await fetch(`/api/partner-conditions/${planId}`, {
+  const primary = await fetch('/api/partner-conditions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ plan: planId, ...payload }),
   })
 
-  // Some deployments expose only /api/partner-conditions (without dynamic route)
+  // Legacy deployments may still expose only /api/partner-conditions/:plan
   if (primary.status === 404 || primary.status === 405 || primary.status === 501) {
-    return fetch('/api/partner-conditions', {
+    return fetch(`/api/partner-conditions/${planId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan: planId, ...payload }),
+      body: JSON.stringify(payload),
     })
   }
 
