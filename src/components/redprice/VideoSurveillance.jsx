@@ -79,20 +79,6 @@ export default function VideoSurveillance({ storeVideoUrl }) {
 
   return (
     <div className="space-y-10">
-      {trimmedStoreUrl ? (
-        <Card className="overflow-hidden border border-gray-200 bg-white shadow-sm">
-          <CardHeader className="pb-2 pt-4">
-            <CardTitle className="text-base font-semibold text-black">Трансляция (URL магазина)</CardTitle>
-            <CardDescription>
-              Ссылка из настроек точки. Для YouTube вставьте ссылку просмотра, не RTMP-адрес публикации.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pb-4">
-            <VideoUrlEmbed url={trimmedStoreUrl} />
-          </CardContent>
-        </Card>
-      ) : null}
-
       <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex items-start gap-3">
           <div className="rounded-xl bg-slate-50 p-2">
@@ -242,6 +228,20 @@ export default function VideoSurveillance({ storeVideoUrl }) {
           ))}
         </div>
       )}
+
+      {trimmedStoreUrl ? (
+        <Card className="overflow-hidden border border-gray-200 bg-white shadow-sm">
+          <CardHeader className="pb-2 pt-4">
+            <CardTitle className="text-base font-semibold text-black">Доп. источник трансляции (URL магазина)</CardTitle>
+            <CardDescription>
+              Ссылка из настроек точки. Основной экран выше показывает таблицу/сетку камер онлайн.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pb-4">
+            <VideoUrlEmbed url={trimmedStoreUrl} />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Dialog open={!!detail} onOpenChange={(open) => !open && setDetail(null)}>
         <DialogContent className="max-w-4xl gap-0 overflow-hidden p-0 sm:max-w-4xl">
