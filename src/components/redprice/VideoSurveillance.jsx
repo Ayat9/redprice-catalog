@@ -76,6 +76,18 @@ export default function VideoSurveillance({ storeVideoUrl }) {
   }, [dateIso])
 
   const trimmedStoreUrl = String(storeVideoUrl || '').trim()
+  const camerasInGrid = useMemo(() => {
+    if (!trimmedStoreUrl) return slice
+    return [
+      {
+        id: 'store-stream-main',
+        name: 'Камера 1 · Онлайн поток магазина',
+        channel: 'CH-1',
+        isStoreStream: true,
+      },
+      ...slice,
+    ]
+  }, [slice, trimmedStoreUrl])
 
   return (
     <div className="space-y-10">
@@ -87,7 +99,7 @@ export default function VideoSurveillance({ storeVideoUrl }) {
           <div>
             <h2 className="text-xl font-semibold tracking-[-0.02em] text-black">Видеонаблюдение</h2>
             <p className="mt-2 text-[15px] leading-relaxed text-slate-500">
-              До 9 камер в сетке; всего {cameras.length || 20} каналов. Выберите день для архива и
+              До 9 камер в сетке; всего {(trimmedStoreUrl ? cameras.length + 1 : cameras.length) || 20} каналов. Выберите день для архива и
               откройте камеру для детального просмотра.
             </p>
           </div>
@@ -142,7 +154,7 @@ export default function VideoSurveillance({ storeVideoUrl }) {
           </span>
           <span className="mx-2 text-slate-300">·</span>
           Камеры {pageClamped * PAGE_SIZE + 1}–
-          {Math.min((pageClamped + 1) * PAGE_SIZE, cameras.length)} из {cameras.length}
+          {Math.min((pageClamped + 1) * PAGE_SIZE, camerasInGrid.length)} из {camerasInGrid.length}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
@@ -202,12 +214,21 @@ export default function VideoSurveillance({ storeVideoUrl }) {
                 : 'sm:grid-cols-2 lg:grid-cols-3'
           }`}
         >
-          {slice.map((cam) => (
+          {camerasInGrid.map((cam) => (
             <div key={cam.id} className="group">
               <VideoStream
                 camera={cam}
                 archiveDateIso={dateIso}
+                live={cam.isStoreStream}
                 onOpenDetail={() => setDetail(cam)}
+                previewContent={
+                  cam.isStoreStream ? (
+                    <VideoUrlEmbed
+                      url={trimmedStoreUrl}
+                      className="h-full [&>*]:h-full [&>*]:rounded-none [&_iframe]:h-full [&_iframe]:w-full"
+                    />
+                  ) : null
+                }
                 videoOverlay={
                   <Button
                     type="button"
@@ -228,20 +249,6 @@ export default function VideoSurveillance({ storeVideoUrl }) {
           ))}
         </div>
       )}
-
-      {trimmedStoreUrl ? (
-        <Card className="overflow-hidden border border-gray-200 bg-white shadow-sm">
-          <CardHeader className="pb-2 pt-4">
-            <CardTitle className="text-base font-semibold text-black">Доп. источник трансляции (URL магазина)</CardTitle>
-            <CardDescription>
-              Ссылка из настроек точки. Основной экран выше показывает таблицу/сетку камер онлайн.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pb-4">
-            <VideoUrlEmbed url={trimmedStoreUrl} />
-          </CardContent>
-        </Card>
-      ) : null}
 
       <Dialog open={!!detail} onOpenChange={(open) => !open && setDetail(null)}>
         <DialogContent className="max-w-4xl gap-0 overflow-hidden p-0 sm:max-w-4xl">

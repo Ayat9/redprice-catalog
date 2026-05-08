@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
  * @param {boolean} live — признак живого потока с API
  * @param {() => void} [onOpenDetail] — открыть полноэкранный просмотр
  * @param {import('react').ReactNode} [videoOverlay] — кнопки поверх превью (внутри aspect-video)
+ * @param {import('react').ReactNode} [previewContent] — кастомное превью потока
  */
 export default function VideoStream({
   camera,
@@ -17,6 +18,7 @@ export default function VideoStream({
   live = false,
   onOpenDetail,
   videoOverlay,
+  previewContent,
   /** @deprecated используйте camera */
   slotIndex,
 }) {
@@ -74,12 +76,16 @@ export default function VideoStream({
             </Tooltip>
           </div>
 
-          <div className="relative flex h-full min-h-[160px] flex-col items-center justify-center px-4 py-10 text-center sm:px-6">
-            <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-              Подключение к API регистратора…
-            </p>
-            <p className="mt-3 font-mono text-xs text-muted-foreground/80">{channel}</p>
-          </div>
+          {previewContent ? (
+            <div className="relative h-full min-h-[160px]">{previewContent}</div>
+          ) : (
+            <div className="relative flex h-full min-h-[160px] flex-col items-center justify-center px-4 py-10 text-center sm:px-6">
+              <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+                Подключение к API регистратора…
+              </p>
+              <p className="mt-3 font-mono text-xs text-muted-foreground/80">{channel}</p>
+            </div>
+          )}
           {videoOverlay ? (
             <div className="absolute bottom-3 right-3 z-20" onClick={(e) => e.stopPropagation()}>
               {videoOverlay}
