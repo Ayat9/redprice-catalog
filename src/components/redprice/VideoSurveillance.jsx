@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight, Maximize2, Video } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Maximize2, Video } from 'lucide-react'
 import { fetchCamerasForDay } from './api/videoApi'
 import VideoStream from './VideoStream'
 import { Button } from '@/components/ui/button'
@@ -50,6 +50,7 @@ export default function VideoSurveillance({ storeVideoUrl }) {
   const [loading, setLoading] = useState(true)
   const [detail, setDetail] = useState(null)
   const [viewMode, setViewMode] = useState('tiles')
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -80,7 +81,7 @@ export default function VideoSurveillance({ storeVideoUrl }) {
     if (!trimmedStoreUrl) return slice
     return [
       {
-        id: 'store-stream-main',
+        id: 'cam-01',
         name: 'Камера 1 · Онлайн поток магазина',
         channel: 'CH-1',
         isStoreStream: true,
@@ -90,8 +91,8 @@ export default function VideoSurveillance({ storeVideoUrl }) {
   }, [slice, trimmedStoreUrl])
 
   return (
-    <div className="space-y-10">
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4">
         <div className="flex items-start gap-3">
           <div className="rounded-xl bg-slate-50 p-2">
             <Video className="size-6 text-black" strokeWidth={1.5} aria-hidden />
@@ -105,45 +106,60 @@ export default function VideoSurveillance({ storeVideoUrl }) {
           </div>
         </div>
 
-        <Card className="w-full max-w-md border border-gray-200 bg-white shadow-sm lg:w-auto">
-          <CardHeader className="pb-3 pt-4">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium">
-              <CalendarDays className="size-4" />
-              День просмотра
-            </CardTitle>
-            <CardDescription>Архив / контекст записей (подключите API регистратора)</CardDescription>
-          </CardHeader>
-          <CardContent className="pb-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="date"
-                value={dateIso}
-                onChange={(e) => setDateIso(e.target.value)}
-                className="h-10 min-w-[180px] rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
-              />
-              <div className="flex gap-1">
-                <Button type="button" variant="outline" size="sm" onClick={() => setDateIso(todayIsoLocal())}>
-                  Сегодня
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    const d = new Date(dateIso + 'T12:00:00')
-                    d.setDate(d.getDate() - 1)
-                    setDateIso(d.toISOString().slice(0, 10))
-                  }}
-                >
-                  Вчера
-                </Button>
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-xl bg-white shadow-sm"
+            onClick={() => setFiltersOpen((v) => !v)}
+          >
+            <CalendarDays className="size-4" />
+            Фильтр даты
+            <ChevronDown className={`size-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
+          </Button>
+        </div>
+
+        {filtersOpen ? (
+          <Card className="w-full border border-gray-200 bg-white shadow-sm">
+            <CardHeader className="pb-3 pt-4">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                <CalendarDays className="size-4" />
+                День просмотра
+              </CardTitle>
+              <CardDescription>Архив / контекст записей (подключите API регистратора)</CardDescription>
+            </CardHeader>
+            <CardContent className="pb-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  value={dateIso}
+                  onChange={(e) => setDateIso(e.target.value)}
+                  className="h-10 min-w-[180px] rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                />
+                <div className="flex gap-1">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setDateIso(todayIsoLocal())}>
+                    Сегодня
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const d = new Date(dateIso + 'T12:00:00')
+                      d.setDate(d.getDate() - 1)
+                      setDateIso(d.toISOString().slice(0, 10))
+                    }}
+                  >
+                    Вчера
+                  </Button>
+                </div>
               </div>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Выбрано: <span className="font-medium text-foreground">{formatRuDate(dateIso)}</span>
-            </p>
-          </CardContent>
-        </Card>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Выбрано: <span className="font-medium text-foreground">{formatRuDate(dateIso)}</span>
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -225,6 +241,7 @@ export default function VideoSurveillance({ storeVideoUrl }) {
                   cam.isStoreStream ? (
                     <VideoUrlEmbed
                       url={trimmedStoreUrl}
+                      hideFallbackHint
                       className="h-full [&>*]:h-full [&>*]:rounded-none [&_iframe]:h-full [&_iframe]:w-full"
                     />
                   ) : null
@@ -263,16 +280,20 @@ export default function VideoSurveillance({ storeVideoUrl }) {
           </DialogHeader>
           <div className="bg-white p-6">
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-slate-50/50 shadow-inner">
-              <div className="relative aspect-video w-full">
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-8 text-center">
-                  <p className="text-sm text-slate-500">
-                    Поток и архив за выбранный день подключатся к API регистратора.
-                  </p>
-                  <p className="font-mono text-xs text-slate-400">
-                    {detail?.name} · {detail?.channel}
-                  </p>
+              {detail?.isStoreStream && trimmedStoreUrl ? (
+                <VideoUrlEmbed url={trimmedStoreUrl} className="w-full [&>*]:rounded-none" />
+              ) : (
+                <div className="relative aspect-video w-full">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-8 text-center">
+                    <p className="text-sm text-slate-500">
+                      Поток и архив за выбранный день подключатся к API регистратора.
+                    </p>
+                    <p className="font-mono text-xs text-slate-400">
+                      {detail?.name} · {detail?.channel}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </DialogContent>

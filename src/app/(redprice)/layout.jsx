@@ -215,7 +215,7 @@ export function InvestorDashboardLayout({
       >
         <header className="sticky top-0 z-30 bg-[#F8FAFC]/90 backdrop-blur">
           <div className="mx-auto max-w-[1280px] px-4 py-5 md:px-8 md:py-7">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between xl:gap-10">
               <div className="flex min-w-0 flex-1 items-start gap-3">
                 <Button
                   type="button"
@@ -234,7 +234,7 @@ export function InvestorDashboardLayout({
                   )}
                 </Button>
 
-                <div className="min-w-0 flex-1 space-y-2">
+                <div className="min-w-0 flex-1 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2.5">
                     <span
                       className="inline-flex h-2 w-2 shrink-0 rounded-full bg-emerald-500 ring-2 ring-white"
@@ -247,8 +247,8 @@ export function InvestorDashboardLayout({
                       System Online
                     </span>
                   </div>
-                  <p className="text-[13px] font-medium tracking-tight text-gray-500">{activeLabel}</p>
-                  <p className="max-w-2xl text-[15px] leading-[1.65] text-[#64748B]">
+                  <p className="truncate text-[13px] font-medium tracking-tight text-gray-500">{activeLabel}</p>
+                  <p className="max-w-3xl text-[14px] leading-[1.5] text-[#64748B] md:whitespace-normal">
                     Прозрачная аналитика сети, финансов и динамики продаж в одном кабинете.
                   </p>
                 </div>

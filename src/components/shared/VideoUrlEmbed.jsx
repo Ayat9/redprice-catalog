@@ -2,9 +2,9 @@ import { extractYouTubeVideoId } from '@/lib/youtubeEmbed'
 
 /**
  * Встраивание по URL: YouTube, RTMP-подсказка, прямой файл или ссылка.
- * @param {{ url?: string | null, className?: string }} props
+ * @param {{ url?: string | null, className?: string, hideFallbackHint?: boolean }} props
  */
-export function VideoUrlEmbed({ url, className = '' }) {
+export function VideoUrlEmbed({ url, className = '', hideFallbackHint = false }) {
   const value = String(url || '').trim()
   if (!value) return null
   if (/^rtmp:\/\//i.test(value)) {
@@ -50,12 +50,14 @@ export function VideoUrlEmbed({ url, className = '' }) {
         <div className="aspect-video w-full overflow-hidden rounded-xl bg-black shadow-sm ring-1 ring-black/5">
           <iframe title="Видео" className="h-full w-full" src={value} allow="autoplay; encrypted-media" />
         </div>
-        <p className="text-xs text-slate-500">
-          Если сайт камеры запрещает встраивание, откройте поток в новой вкладке:{' '}
-          <a href={value} className="text-[#E41C2A] underline" target="_blank" rel="noreferrer">
-            открыть ссылку
-          </a>
-        </p>
+        {!hideFallbackHint ? (
+          <p className="text-xs text-slate-500">
+            Если сайт камеры запрещает встраивание, откройте поток в новой вкладке:{' '}
+            <a href={value} className="text-[#E41C2A] underline" target="_blank" rel="noreferrer">
+              открыть ссылку
+            </a>
+          </p>
+        ) : null}
       </div>
     )
   }
