@@ -52,7 +52,7 @@ export default function InvestorPage() {
   }, [session])
 
   const visibleSectionIds = useMemo(() => {
-    const base = ['overview']
+    const base = ['overview', 'account']
     if (!selectedStoreId || !access) return base
     const byRole = Array.isArray(access?.role?.permissions?.sections)
       ? access.role.permissions.sections
@@ -81,6 +81,58 @@ export default function InvestorPage() {
     switch (activeSection) {
       case 'overview':
         return <InvestorHero />
+      case 'account':
+        return (
+          <section className="space-y-6">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900">Настройки учетной записи инвестора</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Управление данными текущего аккаунта и паролем для входа.
+              </p>
+              <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Имя</p>
+                  <p className="mt-1 font-medium text-slate-900">{access?.investor?.name || session?.name || '—'}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Email</p>
+                  <p className="mt-1 font-medium text-slate-900">{access?.investor?.email || session?.email || '—'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h3 className="text-base font-semibold text-slate-900">Смена пароля</h3>
+              <p className="mt-1 text-sm text-slate-500">Новый пароль должен быть не короче 6 символов.</p>
+              <form className="mt-4 space-y-3" onSubmit={onChangePassword}>
+                <input
+                  type="password"
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 shadow-sm outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200/70"
+                  placeholder="Текущий пароль"
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  required
+                />
+                <input
+                  type="password"
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 shadow-sm outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200/70"
+                  placeholder="Новый пароль"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={6}
+                  required
+                />
+                {passwordMessage && <p className="text-sm text-slate-600">{passwordMessage}</p>}
+                <button
+                  type="submit"
+                  className="rounded-xl bg-[#E41C2A] px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-[#c91822]"
+                >
+                  Обновить пароль
+                </button>
+              </form>
+            </div>
+          </section>
+        )
       case 'video':
         return <VideoSurveillance storeVideoUrl={selectedStore?.videoUrl} />
       case 'finance':
@@ -94,7 +146,17 @@ export default function InvestorPage() {
       default:
         return <InvestorHero />
     }
-  }, [activeSection, selectedStore?.videoUrl])
+  }, [
+    access?.investor?.email,
+    access?.investor?.name,
+    activeSection,
+    newPassword,
+    oldPassword,
+    passwordMessage,
+    selectedStore?.videoUrl,
+    session?.email,
+    session?.name,
+  ])
 
   async function onLogin(e) {
     e.preventDefault()
