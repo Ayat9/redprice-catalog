@@ -44,6 +44,21 @@ export function VideoUrlEmbed({ url, className = '' }) {
       </video>
     )
   }
+  if (/^https?:\/\//i.test(value)) {
+    return (
+      <div className={`space-y-2 ${className}`}>
+        <div className="aspect-video w-full overflow-hidden rounded-xl bg-black shadow-sm ring-1 ring-black/5">
+          <iframe title="Видео" className="h-full w-full" src={value} allow="autoplay; encrypted-media" />
+        </div>
+        <p className="text-xs text-slate-500">
+          Если сайт камеры запрещает встраивание, откройте поток в новой вкладке:{' '}
+          <a href={value} className="text-[#E41C2A] underline" target="_blank" rel="noreferrer">
+            открыть ссылку
+          </a>
+        </p>
+      </div>
+    )
+  }
   return (
     <p className={`text-sm text-slate-500 ${className}`}>
       Видео:{' '}
