@@ -77,7 +77,9 @@ export default function VideoStream({
           </div>
 
           {previewContent ? (
-            <div className="relative h-full min-h-[160px]">{previewContent}</div>
+            <div className="absolute inset-0 z-[5] overflow-hidden [&_iframe]:touch-manipulation">
+              {previewContent}
+            </div>
           ) : (
             <div className="relative flex h-full min-h-[160px] flex-col items-center justify-center px-4 py-10 text-center sm:px-6">
               <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">

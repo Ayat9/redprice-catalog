@@ -239,11 +239,7 @@ export default function VideoSurveillance({ storeVideoUrl }) {
                 onOpenDetail={() => setDetail(cam)}
                 previewContent={
                   cam.isStoreStream ? (
-                    <VideoUrlEmbed
-                      url={trimmedStoreUrl}
-                      hideFallbackHint
-                      className="h-full [&>*]:h-full [&>*]:rounded-none [&_iframe]:h-full [&_iframe]:w-full"
-                    />
+                    <VideoUrlEmbed url={trimmedStoreUrl} hideFallbackHint layout="fill" />
                   ) : null
                 }
                 videoOverlay={
@@ -251,7 +247,7 @@ export default function VideoSurveillance({ storeVideoUrl }) {
                     type="button"
                     size="sm"
                     variant="secondary"
-                    className="rounded-xl bg-white/95 shadow-md opacity-0 transition-opacity group-hover:opacity-100"
+                    className="rounded-xl bg-white/95 shadow-md opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
                     onClick={(e) => {
                       e.stopPropagation()
                       setDetail(cam)
