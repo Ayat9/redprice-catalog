@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAdminAuth } from '../context/AdminAuthContext'
 import { getPrice, updatePrice } from '../../lib/store'
+import EslSectionTabs from '../components/admin/EslSectionTabs'
 
 export default function AdminCennik() {
   const { isLoggedIn, canEdit } = useAdminAuth()
@@ -61,7 +62,10 @@ export default function AdminCennik() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-6">
       <div className="max-w-3xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Электронные ценники</h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-2xl font-bold text-slate-900">Электронные ценники</h1>
+            <EslSectionTabs />
+          </div>
           <p className="text-slate-600 mt-2">
             Укажите название товара и цену — и система сохранит их, чтобы ценник можно было отображать на устройствах/экранах.
           </p>

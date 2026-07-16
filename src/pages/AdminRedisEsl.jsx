@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { io } from 'socket.io-client'
 import { useAdminAuth } from '../context/AdminAuthContext'
+import EslSectionTabs from '../components/admin/EslSectionTabs'
 import './Admin.css'
 
 const STORE_ID = 'rp-1'
@@ -320,7 +321,10 @@ export default function AdminRedisEsl() {
             {activeSection === 'binding' && 'Привязка MAC к товарам'}
             {activeSection === 'sync' && 'Синхронизация из 1С'}
           </h1>
-          <div className="text-xs text-slate-500">Backend: {backend || '—'} · store: {STORE_ID}</div>
+          <div className="flex flex-wrap items-center gap-3">
+            <EslSectionTabs />
+            <div className="text-xs text-slate-500">Backend: {backend || '—'} · store: {STORE_ID}</div>
+          </div>
         </div>
 
         {message && <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">{message}</div>}
